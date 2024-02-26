@@ -1,45 +1,112 @@
+// @ts-nocheck
 import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
-import "./App.css";
+import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
-function App() {
-  const el = useRef(null);
+const ThreeScene = () => {
+  const canvasRef = useRef();
 
   useEffect(() => {
-    if (!el.current) return;
+    // Canvas
+    const canvas = canvasRef.current;
 
+    // Scene
     const scene = new THREE.Scene();
+
+    // Object
+    const geometry = new THREE.BoxGeometry(1, 1, 1);
+    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    // Sizes
+    const sizes = {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+
+    // Camera
     const camera = new THREE.PerspectiveCamera(
       75,
-      window.innerWidth / window.innerHeight,
+      sizes.width / sizes.height,
       0.1,
-      1000
+      100
     );
+    camera.position.z = 3;
+    scene.add(camera);
 
-    const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+    });
+    renderer.setSize(sizes.width, sizes.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    // Controls
+    const controls = new OrbitControls(camera, canvas);
+    controls.enableDamping = true;
 
-    camera.position.z = 5;
+    // Resize event
+    const handleResize = () => {
+      sizes.width = window.innerWidth;
+      sizes.height = window.innerHeight;
 
-    function animate() {
-      requestAnimationFrame(animate);
+      camera.aspect = sizes.width / sizes.height;
+      camera.updateProjectionMatrix();
 
-      cube.rotation.x += 0.01;
-      cube.rotation.y += 0.01;
+      renderer.setSize(sizes.width, sizes.height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    };
+    window.addEventListener("resize", handleResize);
 
+    // Fullscreen event
+    const handleDoubleClick = () => {
+      const fullscreenElement =
+        document.fullscreenElement || document.webkitFullscreenElement;
+
+      if (!fullscreenElement) {
+        if (canvas.requestFullscreen) {
+          canvas.requestFullscreen();
+        } else if (canvas.webkitRequestFullscreen) {
+          canvas.webkitRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        }
+      }
+    };
+    window.addEventListener("dblclick", handleDoubleClick);
+
+    // Animation loop
+    const clock = new THREE.Clock();
+
+    const tick = () => {
+      const elapsedTime = clock.getElapsedTime();
+
+      // Update controls
+      controls.update();
+
+      // Render
       renderer.render(scene, camera);
-    }
 
-    animate();
+      // Call tick again on the next frame
+      window.requestAnimationFrame(tick);
+    };
+
+    tick();
+
+    // Cleanup
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("dblclick", handleDoubleClick);
+      renderer.dispose();
+    };
   }, []);
 
-  return <div ref={el}></div>;
-}
+  return <canvas ref={canvasRef} className="webgl"></canvas>;
+};
 
-export default App;
+export default ThreeScene;
