@@ -13,11 +13,20 @@ const ThreeScene = () => {
     // Scene
     const scene = new THREE.Scene();
 
-    // Object
+    // Cube
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
-    const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
+    const material = new THREE.MeshBasicMaterial({ color: 0xadd8e6 });
+    const cube = new THREE.Mesh(geometry, material);
+    scene.add(cube);
+
+    // Cube Edges
+    const edges = new THREE.EdgesGeometry(geometry);
+    const lineMaterial = new THREE.LineBasicMaterial({
+      color: 0x4169e1,
+      linewidth: 2,
+    }); // Use a contrasting color for better visibility
+    const cubeEdges = new THREE.LineSegments(edges, lineMaterial);
+    cube.add(cubeEdges); // Add the edges to the cube to ensure they move together
 
     // Sizes
     const sizes = {
