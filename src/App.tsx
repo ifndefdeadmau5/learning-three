@@ -13,21 +13,41 @@ const ThreeScene = () => {
     // Scene
     const scene = new THREE.Scene();
 
-    // Cube
-    const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshBasicMaterial({ color: 0xadd8e6 });
-    const cube = new THREE.Mesh(geometry, material);
-    scene.add(cube);
+    // // Cube
+    // const geometry = new THREE.BoxGeometry(1, 1, 1);
+    // const material = new THREE.MeshBasicMaterial({ color: 0xadd8e6 });
+    // const cube = new THREE.Mesh(geometry, material);
+    // scene.add(cube);
 
-    // Cube Edges
-    const edges = new THREE.EdgesGeometry(geometry);
-    const lineMaterial = new THREE.LineBasicMaterial({
-      color: 0x4169e1,
-      linewidth: 2,
-    }); // Use a contrasting color for better visibility
-    const cubeEdges = new THREE.LineSegments(edges, lineMaterial);
-    cube.add(cubeEdges); // Add the edges to the cube to ensure they move together
+    // // Cube Edges
+    // const edges = new THREE.EdgesGeometry(geometry);
+    // const lineMaterial = new THREE.LineBasicMaterial({
+    //   color: 0x4169e1,
+    //   linewidth: 2,
+    // }); // Use a contrasting color for better visibility
+    // const cubeEdges = new THREE.LineSegments(edges, lineMaterial);
+    // cube.add(cubeEdges); // Add the edges to the cube to ensure they move together
 
+    /**
+     * Object
+     */
+    const geometry = new THREE.BufferGeometry();
+    const count = 15;
+    const positionsArray = new Float32Array(count * 3 * 3);
+    for (let i = 0; i < count * 3 * 3; i++) {
+      positionsArray[i] = (Math.random() - 0.5) * 4;
+    }
+    const positionsAttribute = new THREE.BufferAttribute(positionsArray, 3);
+    geometry.setAttribute("position", positionsAttribute);
+
+    const material = new THREE.MeshBasicMaterial({
+      // suggest something winter color
+      color: 0xadd8e6,
+      wireframe: true,
+    });
+
+    const mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
     // Sizes
     const sizes = {
       width: window.innerWidth,
