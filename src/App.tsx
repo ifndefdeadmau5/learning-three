@@ -3,6 +3,14 @@ import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 
+// import * as THREE from 'three'
+// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
+import GUI from "lil-gui";
+import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
+import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
+// import typefaceFont from "three/examples/fonts/helvetiker_regular.typeface.json";
+import typefaceFont from "./helvetiker_regular.typeface.json";
+
 const ThreeScene = () => {
   const canvasRef = useRef();
 
@@ -13,67 +21,100 @@ const ThreeScene = () => {
     // Scene
     const scene = new THREE.Scene();
 
-    // // Cube
-    // const geometry = new THREE.BoxGeometry(1, 1, 1);
-    // const material = new THREE.MeshBasicMaterial({ color: 0xadd8e6 });
-    // const cube = new THREE.Mesh(geometry, material);
-    // scene.add(cube);
-
-    // // Cube Edges
-    // const edges = new THREE.EdgesGeometry(geometry);
-    // const lineMaterial = new THREE.LineBasicMaterial({
-    //   color: 0x4169e1,
-    //   linewidth: 2,
-    // }); // Use a contrasting color for better visibility
-    // const cubeEdges = new THREE.LineSegments(edges, lineMaterial);
-    // cube.add(cubeEdges); // Add the edges to the cube to ensure they move together
+    /**
+     * Textures
+     */
+    const textureLoader = new THREE.TextureLoader();
+    const matcapTexture = textureLoader.load("textures/matcaps/8.png");
+    matcapTexture.colorSpace = THREE.SRGBColorSpace;
 
     /**
-     * Object
+     * Fonts
      */
-    const geometry = new THREE.BufferGeometry();
-    const count = 15;
-    const positionsArray = new Float32Array(count * 3 * 3);
-    for (let i = 0; i < count * 3 * 3; i++) {
-      positionsArray[i] = (Math.random() - 0.5) * 4;
-    }
-    const positionsAttribute = new THREE.BufferAttribute(positionsArray, 3);
-    geometry.setAttribute("position", positionsAttribute);
+    const fontLoader = new FontLoader();
 
-    const material = new THREE.MeshBasicMaterial({
-      // suggest something winter color
-      color: 0xadd8e6,
-      wireframe: true,
+    // fontLoader.load("/fonts/helvetiker_regular.typeface.json", (font) => {
+    fontLoader.load("helvetiker_regular.typeface.json", (font) => {
+      // Material
+      const material = new THREE.MeshMatcapMaterial({ matcap: matcapTexture });
+
+      // Text
+      const textGeometry = new TextGeometry("Hello Three.js", {
+        font: font,
+        size: 0.5,
+        height: 0.2,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.03,
+        bevelSize: 0.02,
+        bevelOffset: 0,
+        bevelSegments: 5,
+      });
+      textGeometry.center();
+
+      const text = new THREE.Mesh(textGeometry, material);
+      scene.add(text);
+
+      // Donuts
+      const donutGeometry = new THREE.TorusGeometry(0.3, 0.2, 32, 64);
+
+      for (let i = 0; i < 100; i++) {
+        const donut = new THREE.Mesh(donutGeometry, material);
+        donut.position.x = (Math.random() - 0.5) * 10;
+        donut.position.y = (Math.random() - 0.5) * 10;
+        donut.position.z = (Math.random() - 0.5) * 10;
+        donut.rotation.x = Math.random() * Math.PI;
+        donut.rotation.y = Math.random() * Math.PI;
+        const scale = Math.random();
+        donut.scale.set(scale, scale, scale);
+
+        scene.add(donut);
+      }
     });
 
-    const mesh = new THREE.Mesh(geometry, material);
-    scene.add(mesh);
     // Sizes
     const sizes = {
       width: window.innerWidth,
       height: window.innerHeight,
     };
 
-    // Camera
+    /**
+     * Camera
+     */
+    // Base camera
     const camera = new THREE.PerspectiveCamera(
       75,
       sizes.width / sizes.height,
       0.1,
       100
     );
-    camera.position.z = 3;
+    camera.position.x = 1;
+    camera.position.y = 1;
+    camera.position.z = 2;
     scene.add(camera);
-
-    // Renderer
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-    });
-    renderer.setSize(sizes.width, sizes.height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     // Controls
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
+
+    /**
+     * Renderer
+     */
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvas,
+    });
+    renderer.setSize(sizes.width, sizes.height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    // Renderer
+    // const renderer = new THREE.WebGLRenderer({
+    //   canvas,
+    // });
+    // renderer.setSize(sizes.width, sizes.height);
+    // renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+    // // Controls
+    // const controls = new OrbitControls(camera, canvas);
+    // controls.enableDamping = true;
 
     // Resize event
     const handleResize = () => {
