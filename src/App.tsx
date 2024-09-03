@@ -11,6 +11,9 @@ import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
 // import typefaceFont from "three/examples/fonts/helvetiker_regular.typeface.json";
 import typefaceFont from "./helvetiker_regular.typeface.json";
 
+// Debug
+const gui = new GUI();
+
 const ThreeScene = () => {
   const canvasRef = useRef();
 
@@ -22,55 +25,8 @@ const ThreeScene = () => {
     const scene = new THREE.Scene();
 
     /**
-     * Textures
-     */
-    const textureLoader = new THREE.TextureLoader();
-    const matcapTexture = textureLoader.load("textures/matcaps/8.png");
-    matcapTexture.colorSpace = THREE.SRGBColorSpace;
-
-    /**
      * Fonts
      */
-    const fontLoader = new FontLoader();
-
-    // fontLoader.load("/fonts/helvetiker_regular.typeface.json", (font) => {
-    fontLoader.load("helvetiker_regular.typeface.json", (font) => {
-      // Material
-      const material = new THREE.MeshMatcapMaterial({ matcap: matcapTexture });
-
-      // Text
-      const textGeometry = new TextGeometry("Hello Three.js", {
-        font: font,
-        size: 0.5,
-        height: 0.2,
-        curveSegments: 12,
-        bevelEnabled: true,
-        bevelThickness: 0.03,
-        bevelSize: 0.02,
-        bevelOffset: 0,
-        bevelSegments: 5,
-      });
-      textGeometry.center();
-
-      const text = new THREE.Mesh(textGeometry, material);
-      scene.add(text);
-
-      // Donuts
-      const donutGeometry = new THREE.TorusGeometry(0.3, 0.2, 32, 64);
-
-      for (let i = 0; i < 100; i++) {
-        const donut = new THREE.Mesh(donutGeometry, material);
-        donut.position.x = (Math.random() - 0.5) * 10;
-        donut.position.y = (Math.random() - 0.5) * 10;
-        donut.position.z = (Math.random() - 0.5) * 10;
-        donut.rotation.x = Math.random() * Math.PI;
-        donut.rotation.y = Math.random() * Math.PI;
-        const scale = Math.random();
-        donut.scale.set(scale, scale, scale);
-
-        scene.add(donut);
-      }
-    });
 
     // Sizes
     const sizes = {
@@ -105,16 +61,90 @@ const ThreeScene = () => {
     });
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    // Renderer
-    // const renderer = new THREE.WebGLRenderer({
-    //   canvas,
-    // });
-    // renderer.setSize(sizes.width, sizes.height);
-    // renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
 
-    // // Controls
-    // const controls = new OrbitControls(camera, canvas);
-    // controls.enableDamping = true;
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    gui.add(ambientLight, "intensity").min(0).max(3).step(0.001);
+    scene.add(ambientLight);
+
+    // Directional light
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(2, 2, -1);
+    gui.add(directionalLight, "intensity").min(0).max(3).step(0.001);
+    gui.add(directionalLight.position, "x").min(-5).max(5).step(0.001);
+    gui.add(directionalLight.position, "y").min(-5).max(5).step(0.001);
+    gui.add(directionalLight.position, "z").min(-5).max(5).step(0.001);
+    scene.add(directionalLight);
+    directionalLight.castShadow = true;
+    directionalLight.shadow.mapSize.width = 2048 * 2;
+    directionalLight.shadow.mapSize.height = 2048 * 2;
+
+    // const directionalLightCameraHelper = new THREE.CameraHelper(
+    //   directionalLight.shadow.camera
+    // );
+    // scene.add(directionalLightCameraHelper);
+
+    // optimize near and far planes
+    directionalLight.shadow.camera.near = 1;
+    directionalLight.shadow.camera.far = 6;
+
+    directionalLight.shadow.camera.top = 2;
+    directionalLight.shadow.camera.right = 2;
+    directionalLight.shadow.camera.bottom = -2;
+    directionalLight.shadow.camera.left = -2;
+
+    directionalLight.radius = 100;
+
+    // Spot light
+    const spotLight = new THREE.SpotLight(0xffffff, 3.6, 10, Math.PI * 0.3);
+    spotLight.castShadow = true;
+    spotLight.position.set(0, 2, 2);
+    scene.add(spotLight);
+    scene.add(spotLight.target);
+
+    spotLight.shadow.mapSize.width = 1024;
+    spotLight.shadow.mapSize.height = 1024;
+
+    const spotLightCameraHelper = new THREE.CameraHelper(
+      spotLight.shadow.camera
+    );
+    scene.add(spotLightCameraHelper);
+    spotLight.visible = false;
+
+    // Point light
+    const pointLight = new THREE.PointLight(0xffffff, 2.7);
+    pointLight.castShadow = true;
+    pointLight.position.set(-1, 1, 0);
+    scene.add(pointLight);
+
+    const pointLightCameraHelper = new THREE.CameraHelper(
+      pointLight.shadow.camera
+    );
+    scene.add(pointLightCameraHelper);
+
+    /**
+     * Materials
+     */
+    const material = new THREE.MeshStandardMaterial();
+    material.roughness = 0.7;
+    gui.add(material, "metalness").min(0).max(1).step(0.001);
+    gui.add(material, "roughness").min(0).max(1).step(0.001);
+
+    /**
+     * Objects
+     */
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(0.5, 32, 32),
+      material
+    );
+    sphere.castShadow = true;
+
+    const plane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), material);
+    plane.rotation.x = -Math.PI * 0.5;
+    plane.position.y = -0.5;
+    plane.receiveShadow = true;
+
+    scene.add(sphere, plane);
 
     // Resize event
     const handleResize = () => {
