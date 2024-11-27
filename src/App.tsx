@@ -113,7 +113,7 @@ function QuasarSimulation() {
       const jetParameters = {
         count: 5000,
         radius: 1,
-        height: 10,
+        height: 100,
         speed: 2,
       };
 
@@ -308,35 +308,20 @@ function QuasarSimulation() {
     // Call this function to create the galaxy disk
     const { galaxyDisk, animateDisk } = createGalaxyDisk();
 
+    const animateDiskParticles = () => {
+      const positions = galaxyDisk.geometry.attributes.position
+        .array as Float32Array;
+      for (let i = 0; i < positions.length; i += 3) {
+        const distance = Math.sqrt(positions[i] ** 2 + positions[i + 2] ** 2);
+        const drift = 0.001 * Math.sign(distance); // Small outward drift
+        positions[i] += positions[i] * drift;
+        positions[i + 2] += positions[i + 2] * drift;
+      }
+      galaxyDisk.geometry.attributes.position.needsUpdate = true;
+    };
+
     // Animation Loop
     const clock = new THREE.Clock();
-    // Integrate the disk animation into the main animation loop
-    // const tick = () => {
-    //   const elapsedTime = clock.getElapsedTime();
-
-    //   // Animate core and glow
-    //   core.rotation.y = elapsedTime * 0.5;
-    //   glow.rotation.y = elapsedTime * 0.5;
-
-    //   // Animate galaxy disk
-    //   animateDisk();
-
-    //   // Animate jets
-    //   const jetPositions = jets.geometry.attributes.position
-    //     .array as Float32Array;
-    //   for (let i = 0; i < jetPositions.length; i += 3) {
-    //     jetPositions[i + 1] += 0.1; // Move particles upward
-    //     if (jetPositions[i + 1] > 10) jetPositions[i + 1] = -10;
-    //     if (jetPositions[i + 1] < -10) jetPositions[i + 1] = 10;
-    //   }
-    //   jets.geometry.attributes.position.needsUpdate = true;
-
-    //   // Render scene
-    //   controls.update();
-    //   composer.render();
-
-    //   requestAnimationFrame(tick);
-    // };
 
     const tick = () => {
       const elapsedTime = clock.getElapsedTime();
@@ -350,6 +335,9 @@ function QuasarSimulation() {
 
       // Animate jets
       animateJets();
+
+      // Animate disk particles
+      animateDiskParticles();
 
       // Render scene
       controls.update();
