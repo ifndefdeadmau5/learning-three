@@ -1,212 +1,157 @@
-// @ts-nocheck
-import React, { useEffect, useRef } from "react";
+/*eslint array-bracket-newline: ["error", { "multiline": true }]*/
+
+"use client";
+
+import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-
-// import * as THREE from 'three'
-// import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from "lil-gui";
-import { FontLoader } from "three/examples/jsm/loaders/FontLoader.js";
-import { TextGeometry } from "three/examples/jsm/geometries/TextGeometry.js";
-// import typefaceFont from "three/examples/fonts/helvetiker_regular.typeface.json";
-import typefaceFont from "./helvetiker_regular.typeface.json";
+import "./style.css";
 
-// Debug
-const gui = new GUI();
-
-const ThreeScene = () => {
-  const canvasRef = useRef();
+function Page() {
+  const el = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    // Canvas
-    const canvas = canvasRef.current;
+    if (!el.current) {
+      return;
+    }
 
+    el.current.innerHTML = "";
     // Scene
     const scene = new THREE.Scene();
 
-    /**
-     * Fonts
-     */
+    const gui = new GUI();
 
-    // Sizes
+    const parameters = {
+      materialColor: "#6ab0d2",
+    };
+
+    gui.addColor(parameters, "materialColor");
+
+    /**
+     * Sizes
+     */
     const sizes = {
       width: window.innerWidth,
       height: window.innerHeight,
     };
+
+    window.addEventListener("resize", () => {
+      // Update sizes
+      sizes.width = window.innerWidth;
+      sizes.height = window.innerHeight;
+
+      // Update camera
+      camera.aspect = sizes.width / sizes.height;
+      camera.updateProjectionMatrix();
+
+      // Update renderer
+      renderer.setSize(sizes.width, sizes.height);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    });
 
     /**
      * Camera
      */
     // Base camera
     const camera = new THREE.PerspectiveCamera(
-      75,
+      35,
       sizes.width / sizes.height,
       0.1,
       100
     );
-    camera.position.x = 1;
-    camera.position.y = 1;
-    camera.position.z = 2;
+    camera.position.z = 6;
     scene.add(camera);
-
-    // Controls
-    const controls = new OrbitControls(camera, canvas);
-    controls.enableDamping = true;
 
     /**
      * Renderer
      */
     const renderer = new THREE.WebGLRenderer({
-      canvas: canvas,
+      canvas: el.current,
+      alpha: true,
     });
     renderer.setSize(sizes.width, sizes.height);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.shadowMap.enabled = true;
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-    gui.add(ambientLight, "intensity").min(0).max(3).step(0.001);
-    scene.add(ambientLight);
-
-    // Directional light
-    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-    directionalLight.position.set(2, 2, -1);
-    gui.add(directionalLight, "intensity").min(0).max(3).step(0.001);
-    gui.add(directionalLight.position, "x").min(-5).max(5).step(0.001);
-    gui.add(directionalLight.position, "y").min(-5).max(5).step(0.001);
-    gui.add(directionalLight.position, "z").min(-5).max(5).step(0.001);
-    scene.add(directionalLight);
-    directionalLight.castShadow = true;
-    directionalLight.shadow.mapSize.width = 2048 * 2;
-    directionalLight.shadow.mapSize.height = 2048 * 2;
-
-    // const directionalLightCameraHelper = new THREE.CameraHelper(
-    //   directionalLight.shadow.camera
-    // );
-    // scene.add(directionalLightCameraHelper);
-
-    // optimize near and far planes
-    directionalLight.shadow.camera.near = 1;
-    directionalLight.shadow.camera.far = 6;
-
-    directionalLight.shadow.camera.top = 2;
-    directionalLight.shadow.camera.right = 2;
-    directionalLight.shadow.camera.bottom = -2;
-    directionalLight.shadow.camera.left = -2;
-
-    directionalLight.radius = 100;
-
-    // Spot light
-    const spotLight = new THREE.SpotLight(0xffffff, 3.6, 10, Math.PI * 0.3);
-    spotLight.castShadow = true;
-    spotLight.position.set(0, 2, 2);
-    scene.add(spotLight);
-    scene.add(spotLight.target);
-
-    spotLight.shadow.mapSize.width = 1024;
-    spotLight.shadow.mapSize.height = 1024;
-
-    const spotLightCameraHelper = new THREE.CameraHelper(
-      spotLight.shadow.camera
-    );
-    scene.add(spotLightCameraHelper);
-    spotLight.visible = false;
-
-    // Point light
-    const pointLight = new THREE.PointLight(0xffffff, 2.7);
-    pointLight.castShadow = true;
-    pointLight.position.set(-1, 1, 0);
-    scene.add(pointLight);
-
-    const pointLightCameraHelper = new THREE.CameraHelper(
-      pointLight.shadow.camera
-    );
-    scene.add(pointLightCameraHelper);
-
-    /**
-     * Materials
-     */
-    const material = new THREE.MeshStandardMaterial();
-    material.roughness = 0.7;
-    gui.add(material, "metalness").min(0).max(1).step(0.001);
-    gui.add(material, "roughness").min(0).max(1).step(0.001);
+    // Texture
+    const textureLoader = new THREE.TextureLoader();
+    const gradientTexture = textureLoader.load("textures/gradients/3.jpg");
+    gradientTexture.magFilter = THREE.NearestFilter;
 
     /**
      * Objects
      */
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 32, 32),
+    // Material
+    const material = new THREE.MeshToonMaterial({
+      color: parameters.materialColor,
+      gradientMap: gradientTexture,
+    });
+
+    // Meshes
+    const mesh1 = new THREE.Mesh(
+      new THREE.TorusGeometry(1, 0.4, 16, 60),
       material
     );
-    sphere.castShadow = true;
+    const mesh2 = new THREE.Mesh(new THREE.ConeGeometry(1, 2, 32), material);
+    const mesh3 = new THREE.Mesh(
+      new THREE.TorusKnotGeometry(0.8, 0.35, 100, 16),
+      material
+    );
 
-    const plane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), material);
-    plane.rotation.x = -Math.PI * 0.5;
-    plane.position.y = -0.5;
-    plane.receiveShadow = true;
+    scene.add(mesh1, mesh2, mesh3);
 
-    scene.add(sphere, plane);
+    /**
+     * Lights
+     */
+    const directionalLight = new THREE.DirectionalLight("#ffffff", 3);
+    directionalLight.position.set(1, 1, 0);
+    scene.add(directionalLight);
 
-    // Resize event
-    const handleResize = () => {
-      sizes.width = window.innerWidth;
-      sizes.height = window.innerHeight;
+    gui.addColor(parameters, "materialColor").onChange(() => {
+      material.color.set(parameters.materialColor);
+    });
 
-      camera.aspect = sizes.width / sizes.height;
-      camera.updateProjectionMatrix();
+    gui.add(directionalLight.position, "x").min(-5).max(5).step(0.01);
 
-      renderer.setSize(sizes.width, sizes.height);
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    };
-    window.addEventListener("resize", handleResize);
-
-    // Fullscreen event
-    const handleDoubleClick = () => {
-      const fullscreenElement =
-        document.fullscreenElement || document.webkitFullscreenElement;
-
-      if (!fullscreenElement) {
-        if (canvas.requestFullscreen) {
-          canvas.requestFullscreen();
-        } else if (canvas.webkitRequestFullscreen) {
-          canvas.webkitRequestFullscreen();
-        }
-      } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        }
-      }
-    };
-    window.addEventListener("dblclick", handleDoubleClick);
-
-    // Animation loop
+    /**
+     * Animate
+     */
     const clock = new THREE.Clock();
+    let requestId = 0;
 
     const tick = () => {
       const elapsedTime = clock.getElapsedTime();
 
-      // Update controls
-      controls.update();
-
       // Render
       renderer.render(scene, camera);
 
+      // constantly change the position of the light to make it seem like the object is glowing
+      // directionalLight.position.x = Math.sin(elapsedTime);
+      // directionalLight.position.y = Math.cos(elapsedTime);
+
       // Call tick again on the next frame
-      window.requestAnimationFrame(tick);
+      requestId = window.requestAnimationFrame(tick);
     };
 
     tick();
-
-    // Cleanup
     return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("dblclick", handleDoubleClick);
-      renderer.dispose();
+      cancelAnimationFrame(requestId);
     };
-  }, []);
+  });
 
-  return <canvas ref={canvasRef} className="webgl"></canvas>;
-};
+  return (
+    <>
+      <canvas className="webgl" style={{ display: "block" }} ref={el}></canvas>
+      <section className="section">
+        <h1>My Portfolio</h1>
+      </section>
+      <section className="section">
+        <h2>My projects</h2>
+      </section>
+      <section className="section">
+        <h2>Contact me</h2>
+      </section>
+    </>
+  );
+}
 
-export default ThreeScene;
+export default Page;
