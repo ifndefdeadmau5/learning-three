@@ -149,7 +149,7 @@ function QuasarSimulation() {
       );
 
       const jetMaterial = new THREE.PointsMaterial({
-        size: 0.005,
+        size: 0.05,
         color: 0x00ccff,
         blending: THREE.AdditiveBlending,
         transparent: true,
@@ -190,12 +190,12 @@ function QuasarSimulation() {
 
     const createAbsorbingPlanet = () => {
       const planetParams = {
-        radius: 0.6, // Size of the planet
-        orbitRadius: 30, // Starting distance from the core
-        angularSpeed: 0.01, // Angular velocity (for spiral motion)
+        radius: 1, // Size of the planet
+        orbitRadius: 21, // Starting distance from the core
+        angularSpeed: 0.02, // Angular velocity (for spiral motion)
         radialSpeed: 0.05, // Speed at which it moves toward the core
-        tailSegments: 50, // Number of segments in the tail
-        tailSize: 10, // Base size of tail particles
+        tailSegments: 200, // Number of segments in the tail
+        tailSize: 3, // Base size of tail particles
       };
 
       // Create the planet
@@ -240,7 +240,7 @@ function QuasarSimulation() {
       const tailMaterial = new THREE.ShaderMaterial({
         uniforms: {
           pointTexture: {
-            value: new THREE.TextureLoader().load("/textures/flare.jpg"),
+            value: new THREE.TextureLoader().load("/textures/flare.png"),
           },
           opacity: { value: 0.5 }, // Adjust opacity
         },
@@ -281,10 +281,11 @@ function QuasarSimulation() {
         angle += planetParams.angularSpeed; // Increment angle
         currentRadius -= planetParams.radialSpeed; // Decrease radius
 
-        // Update planet position
-        const x = Math.cos(angle) * currentRadius;
-        const z = Math.sin(angle) * currentRadius;
-        const y = (Math.random() - 0.5) * 0.2; // Slight vertical wobble
+        // Update planet position (aligned with the XY plane)
+        const x = Math.cos(angle) * currentRadius; // Spiral along the X-axis
+        const y = Math.sin(angle) * currentRadius; // Spiral along the Y-axis
+        const z = (Math.random() - 0.5) * 0.2; // Slight vertical wobble
+
         planet.position.set(x, y, z);
 
         // Update tail positions
@@ -294,10 +295,13 @@ function QuasarSimulation() {
         for (let i = 0; i < planetParams.tailSegments; i++) {
           const t = i / (planetParams.tailSegments - 1); // Interpolation factor (0 to 1)
 
-          // Interpolate between the core and the planet
-          const tx = x * t;
-          const ty = y * t;
-          const tz = z * t;
+          // Calculate spiral offset for each segment
+          const segmentAngle = angle - t * Math.PI * 2; // Spread the segments around the spiral
+          const segmentRadius = currentRadius * (1 - t); // Gradually reduce the radius
+
+          const tx = Math.cos(segmentAngle) * segmentRadius; // Align with X-axis
+          const ty = Math.sin(segmentAngle) * segmentRadius; // Align with Y-axis
+          const tz = z * t; // Gradual vertical interpolation
 
           tailPositions[i * 3] = tx;
           tailPositions[i * 3 + 1] = ty;
@@ -314,7 +318,6 @@ function QuasarSimulation() {
           clearInterval(animationInterval); // Stop animation
         }
       };
-
       // Animate the planet and tail
       const animationInterval = setInterval(animatePlanet, 50); // Update every 50ms
     };
@@ -626,9 +629,7 @@ function QuasarSimulation() {
     });
 
     const triggerAbsorbingPlanets = () => {
-      setInterval(() => {
-        createAbsorbingPlanet(); // Create a new absorbing planet
-      }, 5000); // Every 5 seconds
+      createAbsorbingPlanet();
     };
     triggerAbsorbingPlanets();
 
