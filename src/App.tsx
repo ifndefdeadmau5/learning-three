@@ -99,6 +99,16 @@ function Page() {
 
     scene.add(mesh1, mesh2, mesh3);
 
+    const objectsDistance = 4;
+
+    mesh1.position.x = 2;
+    mesh2.position.x = -2;
+    mesh3.position.x = 2;
+
+    mesh1.position.y = -objectsDistance * 0;
+    mesh2.position.y = -objectsDistance * 1;
+    mesh3.position.y = -objectsDistance * 2;
+
     /**
      * Lights
      */
@@ -113,13 +123,42 @@ function Page() {
     gui.add(directionalLight.position, "x").min(-5).max(5).step(0.01);
 
     /**
+     * Mousemove Event
+     */
+    const cursor = { x: 0, y: 0 };
+
+    const onMouseMove = (event: any) => {
+      // Normalize cursor position to range [-1, 1]
+      cursor.x = (event.clientX / window.innerWidth) * 2 - 1;
+      cursor.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // Update light position
+      directionalLight.position.x = cursor.x * 2; // Adjust multiplier as needed
+      directionalLight.position.y = cursor.y * 2; // Adjust multiplier as needed
+    };
+
+    window.addEventListener("mousemove", onMouseMove);
+
+    let scrollY = window.scrollY;
+    window.addEventListener("scroll", () => {
+      scrollY = window.scrollY;
+    });
+    /**
      * Animate
      */
     const clock = new THREE.Clock();
     let requestId = 0;
-
+    const sectionMeshes = [mesh1, mesh2, mesh3];
     const tick = () => {
       const elapsedTime = clock.getElapsedTime();
+
+      // Animate meshes
+      for (const mesh of sectionMeshes) {
+        mesh.rotation.x = elapsedTime * 0.1;
+        mesh.rotation.y = elapsedTime * 0.12;
+      }
+
+      camera.position.y = (-scrollY / sizes.height) * objectsDistance;
 
       // Render
       renderer.render(scene, camera);
@@ -133,8 +172,10 @@ function Page() {
     };
 
     tick();
+
     return () => {
       cancelAnimationFrame(requestId);
+      window.removeEventListener("mousemove", onMouseMove);
     };
   });
 
