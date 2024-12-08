@@ -32,7 +32,9 @@ function QuasarSimulation() {
       0.1,
       1000 // Increased far clipping plane
     );
-    camera.position.set(0, 33, -4); // Move farther away
+    camera.position.set(0.14, -80.73, 55.14);
+    camera.rotation.set(0.97, 0.0, -0.0);
+
     camera.near = 0.1;
     camera.far = 2000; // Increase far clipping plane
     camera.updateProjectionMatrix();
@@ -40,20 +42,9 @@ function QuasarSimulation() {
     scene.add(camera);
 
     const gui = new GUI();
-    // add gui for camera position
-    const cameraParams = { x: 100, y: 300, z: 50 };
-    // const gui = new GUI();
-    gui.add(cameraParams, "x", -100, 100).onChange((v: number) => {
-      camera.position.x = v;
-    });
-    gui.add(cameraParams, "y", -500, 500).onChange((v: number) => {
-      camera.position.y = v;
-    });
-    gui.add(cameraParams, "z", -100, 100).onChange((v: number) => {
-      camera.position.z = v;
-    });
 
     const controls = new OrbitControls(camera, canvas);
+
     controls.enableDamping = true;
 
     window.addEventListener("resize", () => {
@@ -116,8 +107,12 @@ function QuasarSimulation() {
       .onChange((v: number) => (bloomPass.threshold = v));
 
     // Quasar Core
-    const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    const coreGeometry = new THREE.SphereGeometry(1, 32, 32);
+    // const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    // const coreGeometry = new THREE.SphereGeometry(1, 32, 32);
+    // const core = new THREE.Mesh(coreGeometry, coreMaterial);
+    // Core of the black hole
+    const coreGeometry = new THREE.SphereGeometry(5, 64, 64);
+    const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
     scene.add(core);
 
@@ -185,28 +180,18 @@ function QuasarSimulation() {
       `,
     };
     const lensingPass = new ShaderPass(lensingShader);
-    composer.addPass(lensingPass);
 
-    // add control for distortion strength
-    const distortionParams = { strength: 0.05 };
-    gui
-      .add(distortionParams, "strength", 0, 0.05)
-      .onChange(
-        (v: number) => (lensingPass.uniforms.distortionStrength.value = v)
-      );
+    composer.addPass(lensingPass);
 
     const diskParams = {
       count: 10000,
-      radius: 10,
+      radius: 50,
       spin: 2.0,
     };
 
     const accretionDiskGeometry = new THREE.BufferGeometry();
     const diskPositions = new Float32Array(diskParams.count * 3);
     const diskColors = new Float32Array(diskParams.count * 3);
-
-    // rotate the disk so that it's perpendicular to the jet streams
-    // accretionDiskGeometry.rotateX(Math.PI / 2);
 
     for (let i = 0; i < diskParams.count; i++) {
       const angle = (i / diskParams.count) * Math.PI * 2 * diskParams.spin;
@@ -232,7 +217,7 @@ function QuasarSimulation() {
     );
 
     const accretionDiskMaterial = new THREE.PointsMaterial({
-      size: 0.05,
+      size: 0.1,
       vertexColors: true,
       transparent: true,
       depthWrite: false,
@@ -284,7 +269,7 @@ function QuasarSimulation() {
     //   depthWrite: false,
     // });
 
-    const glowGeometry = new THREE.SphereGeometry(1.2, 32, 32); // Slightly larger than core
+    const glowGeometry = new THREE.SphereGeometry(5.2, 32, 32); // Slightly larger than core
 
     const glowMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -489,7 +474,7 @@ function QuasarSimulation() {
         radius: 3, // Size of the planet
         orbitRadius: 40, // Starting distance from the core
         angularSpeed: 0.05, // Angular velocity (for spiral motion)
-        radialSpeed: 0.1, // Speed at which it moves toward the core
+        radialSpeed: 0.3, // Speed at which it moves toward the core
         tailSegments: 50, // Number of segments in the tail
         tailSize: 10, // Base size of tail particles
       };
@@ -610,12 +595,15 @@ function QuasarSimulation() {
         tail.geometry.attributes.position.needsUpdate = true;
 
         // Check if the planet is close to the core
-        if (currentRadius <= 1) {
+        if (currentRadius <= 3) {
           // Fade out and remove the planet and tail
           fadeOutObject(planet);
           fadeOutObject(tail);
           clearInterval(animationInterval); // Stop animation
-          createAbsorbingPlanet();
+          createCoreEjectionFlare();
+          setTimeout(() => {
+            createAbsorbingPlanet();
+          }, 5000);
         }
       };
 
@@ -734,7 +722,7 @@ function QuasarSimulation() {
       // Rotate the disk to align it perpendicular to the jet streams
       galaxyDisk.rotation.x = Math.PI / 2;
 
-      scene.add(galaxyDisk);
+      // scene.add(galaxyDisk);
 
       // Animate the disk rotation in the animation loop
       const animateDisk = () => {
@@ -769,11 +757,11 @@ function QuasarSimulation() {
 
     const createCoreEjectionFlare = () => {
       const flareParameters = {
-        count: 3000, // Number of particles per ejection
-        size: 0.02, // Initial size of particles
-        speed: 0.2, // Initial speed of particles
-        acceleration: 0.0001, // Acceleration per frame
-        maxLifetime: 1, // Lifetime in seconds
+        count: 10000, // Number of particles per ejection
+        size: 0.3, // Initial size of particles
+        speed: 1, // Initial speed of particles
+        acceleration: 0.001, // Acceleration per frame
+        maxLifetime: 10, // Lifetime in seconds
       };
 
       // Geometry for particles
@@ -789,11 +777,12 @@ function QuasarSimulation() {
         // Position (start at the core)
         positions[i * 3] = 0; // X (core position)
         positions[i * 3 + 1] = 0; // Y (core position)
-        positions[i * 3 + 2] = 0; // Z (core position)
+        positions[i * 3 + 2] = 1; // Z (core position)
 
         // Velocity (random outward direction)
         velocities[i * 3] = Math.cos(angle) * speed; // X velocity
         velocities[i * 3 + 1] = (Math.random() - 0.5) * speed; // Y velocity (vertical spread)
+        // velocities[i * 3 + 2] = Math.sin(angle) * speed; // Z velocity
         velocities[i * 3 + 2] = Math.sin(angle) * speed; // Z velocity
       }
 
@@ -861,13 +850,6 @@ function QuasarSimulation() {
       const animationInterval = setInterval(animateFlare, 50); // Update every 50ms
     };
 
-    const triggerCoreEjections = () => {
-      setInterval(() => {
-        createCoreEjectionFlare();
-      }, 2000); // Trigger every 2 seconds
-    };
-    triggerCoreEjections();
-
     // Call this function to create the galaxy disk
     const { galaxyDisk, animateDisk } = createGalaxyDisk();
 
@@ -889,7 +871,10 @@ function QuasarSimulation() {
     const lensDistortionShader = {
       uniforms: {
         tDiffuse: { value: null },
-        strength: { value: 0.5 },
+        strength: { value: 0.1 },
+        center: { value: new THREE.Vector2(0.5, 0.5) },
+        radius: { value: 0.3 }, // Initial radius
+        smoothness: { value: 0.1 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -901,21 +886,40 @@ function QuasarSimulation() {
       fragmentShader: `
         uniform sampler2D tDiffuse;
         uniform float strength;
+        uniform vec2 center;
+        uniform float radius;
+        uniform float smoothness;
         varying vec2 vUv;
     
         void main() {
+          // Calculate distance from the center
+          float dist = distance(vUv, center);
+    
+          // Apply radial falloff
+          float falloff = smoothstep(radius, radius + smoothness, dist);
+    
+          // Apply distortion only within the falloff radius
           vec2 uv = vUv;
-          uv -= 0.5;
-          uv *= 1.0 + strength * dot(uv, uv);
-          uv += 0.5;
+          if (dist < radius) {
+            vec2 offset = vUv - center;
+            uv -= strength * offset * (1.0 - falloff) * dist * dist;
+          }
+    
           gl_FragColor = texture2D(tDiffuse, uv);
         }
       `,
     };
 
+    // const distortionPass = new ShaderPass(lensDistortionShader);
     const distortionPass = new ShaderPass(lensDistortionShader);
-    distortionPass.uniforms.strength.value = 0.1; // Adjust distortion strength
-    // composer.addPass(distortionPass);
+    distortionPass.uniforms.center.value = new THREE.Vector2(0.5, 0.5); // Center on screen
+    distortionPass.uniforms.radius.value = 0.3; // Base distortion radius
+    distortionPass.uniforms.smoothness.value = 0.1;
+    distortionPass.uniforms.strength.value = 0.2;
+
+    composer.addPass(distortionPass);
+
+    composer.addPass(distortionPass);
 
     // add volumetricLightShader to the composer
     const volumetricLightPass = new ShaderPass(volumetricLightShader);
@@ -942,7 +946,6 @@ function QuasarSimulation() {
 
       // Animate core and glow
       core.rotation.y = elapsedTime * 0.5;
-      // updateGlowEffect(elapsedTime);
 
       // Animate galaxy disk
       animateDisk();
