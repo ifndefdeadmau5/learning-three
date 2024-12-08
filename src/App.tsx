@@ -31,7 +31,7 @@ function QuasarSimulation() {
       75,
       window.innerWidth / window.innerHeight,
       0.1,
-      1000 // Increased far clipping plane
+      2000 // Increased far clipping plane
     );
     camera.position.set(0.14, -80.73, 55.14);
     camera.rotation.set(0.97, 0.0, -0.0);
@@ -203,66 +203,72 @@ function QuasarSimulation() {
 
     composer.addPass(lensingPass);
 
-    const diskParams = {
-      count: 10000,
-      radius: 50,
-      spin: 2.0,
-    };
+    // Accretion Disk Parameters(Commented because of the matter of preference)
+    // const accretionDiskParams = {
+    //   innerRadius: 6, // Inner radius of the disk
+    //   outerRadius: 50, // Outer radius of the disk
+    //   segments: 500, // Number of radial segments
+    //   heightVariation: 0.2, // Vertical variation for "turbulence"
+    //   color: 0xff4500, // Base color for the gas (reddish-orange)
+    // };
 
-    const accretionDiskGeometry = new THREE.BufferGeometry();
-    const diskPositions = new Float32Array(diskParams.count * 3);
-    const diskColors = new Float32Array(diskParams.count * 3);
+    // // Create a disk geometry
+    // const accretionDiskGeometry = new THREE.RingGeometry(
+    //   accretionDiskParams.innerRadius,
+    //   accretionDiskParams.outerRadius,
+    //   accretionDiskParams.segments
+    // );
 
-    for (let i = 0; i < diskParams.count; i++) {
-      const angle = (i / diskParams.count) * Math.PI * 2 * diskParams.spin;
-      const distance = Math.random() * diskParams.radius;
-      const height = (Math.random() - 0.5) * 0.1; // Slight vertical variation
+    // // Add turbulence to the vertices (simulate gas movement)
+    // const positions = accretionDiskGeometry.attributes.position.array;
+    // for (let i = 0; i < positions.length; i += 3) {
+    //   // Add random height variation (turbulence)
+    //   positions[i + 2] +=
+    //     (Math.random() - 0.5) * accretionDiskParams.heightVariation;
+    // }
+    // accretionDiskGeometry.attributes.position.needsUpdate = true;
 
-      diskPositions[i * 3] = Math.cos(angle) * distance;
-      diskPositions[i * 3 + 1] = Math.sin(angle) * distance;
-      diskPositions[i * 3 + 2] = height;
+    // // Apply a noise-based texture for a gas-like effect
+    // const diskTexture = new THREE.TextureLoader().load(
+    //   "/textures/transparent/smoke_01.png"
+    // );
+    // diskTexture.wrapS = THREE.RepeatWrapping;
+    // diskTexture.wrapT = THREE.RepeatWrapping;
+    // diskTexture.repeat.set(100, 10); // Adjust texture tiling
 
-      diskColors[i * 3] = 1.0; // Red
-      diskColors[i * 3 + 1] = 0.5; // Orange
-      diskColors[i * 3 + 2] = 0.2; // Yellow
-    }
+    // // Create the material
+    // const accretionDiskMaterial = new THREE.MeshStandardMaterial({
+    //   map: diskTexture,
+    //   color: accretionDiskParams.color,
+    //   transparent: true,
+    //   opacity: 0.8,
+    //   emissive: new THREE.Color(0xff4500), // Glow color
+    //   emissiveIntensity: 1.5,
+    //   side: THREE.DoubleSide,
+    //   blending: THREE.AdditiveBlending,
+    // });
 
-    accretionDiskGeometry.setAttribute(
-      "position",
-      new THREE.BufferAttribute(diskPositions, 3)
-    );
-    accretionDiskGeometry.setAttribute(
-      "color",
-      new THREE.BufferAttribute(diskColors, 3)
-    );
+    // // Create the accretion disk mesh
+    // const accretionDisk = new THREE.Mesh(
+    //   accretionDiskGeometry,
+    //   accretionDiskMaterial
+    // );
 
-    const accretionDiskMaterial = new THREE.PointsMaterial({
-      size: 0.1,
-      vertexColors: true,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    const accretionDisk = new THREE.Points(
-      accretionDiskGeometry,
-      accretionDiskMaterial
-    );
     // scene.add(accretionDisk);
 
-    // Rotation Animation
-    const animateAccretionDisk = () => {
-      accretionDisk.rotation.z += 0.2;
-    };
+    // Animation: Add a rotation to the disk
+    // const animateAccretionDisk = () => {
+    //   accretionDisk.rotation.z += 0.002; // Slow rotation
+    // };
 
     // Jets
     const jetParameters = {
-      count: 20000, // Increase the number of particles
-      radius: 0.05, // Increase starting radius for a denser emission
+      count: 10000, // Increase the number of particles
+      radius: 0.001, // Increase starting radius for a denser emission
       height: 1000,
-      spread: 0.05,
-      acceleration: 0.02,
-      speed: 1, // Slightly faster initial speed
+      spread: 0.04,
+      acceleration: 0.08,
+      speed: 0.2, // Slightly faster initial speed
       turbulence: 0.0054,
     };
 
@@ -298,42 +304,34 @@ function QuasarSimulation() {
         new THREE.BufferAttribute(velocities, 3)
       );
 
-      const lifetimes = new Float32Array(jetParameters.count).fill(1.0); // Full opacity initially
-
-      jetGeometry.setAttribute(
-        "lifetime",
-        new THREE.BufferAttribute(lifetimes, 1)
-      );
-
       const jetMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          color: { value: new THREE.Color(0x99ccff) }, // Uniform color for all particles
-          pointTexture: {
-            value: new THREE.TextureLoader().load(
-              "/textures/transparent/circle_05.png"
-            ), // Circular texture
-          },
+          color: { value: new THREE.Color(0xffe5c4) },
         },
         vertexShader: `
+          attribute float size;
+          varying float vOpacity;
+    
           void main() {
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = 4.0 * (300.0 / -mvPosition.z); // Adjust size based on depth
+            vOpacity = 1.0 - (abs(position.z) / 100.0); // Fade opacity with distance
+
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
             gl_Position = projectionMatrix * mvPosition;
-          }
+            gl_PointSize = 4.0 * (300.0 / max(-mvPosition.z, 0.1)); // Scale particles based on depth
+}
         `,
         fragmentShader: `
-          uniform vec3 color;
-          uniform sampler2D pointTexture;
-      
-          void main() {
-            vec4 textureColor = texture2D(pointTexture, gl_PointCoord);
-            if (textureColor.a < 0.1) discard; // Discard fragments outside circular region
-            gl_FragColor = vec4(color * textureColor.rgb, textureColor.a); // Combine texture and uniform color
-          }
+        uniform vec3 color;
+        varying float vOpacity;
+
+        void main() {
+          float alpha = max(vOpacity, 0.0); // Ensure vOpacity is clamped to a valid range
+          gl_FragColor = vec4(color, alpha); // Use calculated alpha for opacity
+        }
         `,
-        blending: THREE.AdditiveBlending,
-        depthWrite: false,
         transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
       });
 
       const jets = new THREE.Points(jetGeometry, jetMaterial);
@@ -399,6 +397,136 @@ function QuasarSimulation() {
     scene.add(jetUp);
     scene.add(jetDown);
 
+    // Disk Parameters
+    const diskParams = {
+      numRings: 30, // Number of rings
+      innerRadius: 10, // Inner radius of the innermost ring
+      outerRadius: 40, // Outer radius of the outermost ring
+      heightVariation: 0.2, // Vertical turbulence
+      baseColor: "#FBA209", // Base color for gas (orange)
+      tiltRange: Math.PI / 6, // Maximum tilt angle (~45 degrees)
+      colorVariation: 0.1, // Degree of randomization (0 = no variation, 1 = full random)
+      verticalGradient: 5.0, // Degree of height gradient (thickness of the disk)
+      curveAmount: 4, // Amount of curvature applied to the rings
+    };
+
+    // Array to store rings for later updates
+    const rings: THREE.Mesh[] = [];
+
+    // Function to create a slightly randomized color based on the base color
+    const randomizeColor = (baseColor: THREE.Color, variation: number) => {
+      const r = Math.min(
+        Math.max(baseColor.r + (Math.random() - 0.5) * variation, 0),
+        1
+      );
+      const g = Math.min(
+        Math.max(baseColor.g + (Math.random() - 0.5) * variation, 0),
+        1
+      );
+      const b = Math.min(
+        Math.max(baseColor.b + (Math.random() - 0.5) * variation, 0),
+        1
+      );
+      return new THREE.Color(r, g, b);
+    };
+
+    // Function to create a single ring
+    // Function to create a single ring
+    const createRing = (
+      innerRadius: number,
+      outerRadius: number,
+      baseColor: THREE.Color
+    ) => {
+      const ringGeometry = new THREE.RingGeometry(
+        innerRadius,
+        outerRadius,
+        500
+      );
+      const positions = ringGeometry.attributes.position.array;
+
+      // Add vertical gradient and curvature to the vertices
+      for (let i = 0; i < positions.length; i += 3) {
+        // Apply height gradient (rings closer to the center are thicker)
+        const radialDistance = Math.sqrt(
+          positions[i] * positions[i] + positions[i + 1] * positions[i + 1]
+        );
+        const gradientFactor =
+          ((radialDistance - innerRadius) / (outerRadius - innerRadius)) *
+          diskParams.verticalGradient;
+
+        // Random vertical turbulence
+        positions[i + 2] +=
+          (Math.random() - 0.5) * diskParams.heightVariation + gradientFactor;
+
+        // Apply curvature (bend the rings slightly inwards or outwards)
+        positions[i] +=
+          Math.sin((radialDistance / outerRadius) * Math.PI) *
+          diskParams.curveAmount *
+          (Math.random() > 0.5 ? 1 : -1);
+        positions[i + 1] +=
+          Math.cos((radialDistance / outerRadius) * Math.PI) *
+          diskParams.curveAmount *
+          (Math.random() > 0.5 ? 1 : -1);
+      }
+      ringGeometry.attributes.position.needsUpdate = true;
+
+      // Load texture for the rings
+      const diskTexture = new THREE.TextureLoader().load(
+        "/textures/transparent/smoke_01.png"
+      );
+      diskTexture.wrapS = THREE.RepeatWrapping;
+      diskTexture.wrapT = THREE.RepeatWrapping;
+      diskTexture.repeat.set(10, 1); // Adjust texture tiling
+
+      // Generate a slightly randomized color based on the base color
+      const color = randomizeColor(baseColor, diskParams.colorVariation);
+
+      const material = new THREE.MeshStandardMaterial({
+        map: diskTexture,
+        color: color,
+        transparent: true,
+        opacity: 0.8,
+        emissive: color, // Glow
+        emissiveIntensity: 1.0,
+        side: THREE.DoubleSide,
+        blending: THREE.AdditiveBlending,
+      });
+
+      const ring = new THREE.Mesh(ringGeometry, material);
+
+      // Apply random tilts
+      ring.rotation.x += (Math.random() - 0.5) * diskParams.tiltRange; // Random tilt along X-axis
+      ring.rotation.y += (Math.random() - 0.5) * diskParams.tiltRange; // Random tilt along Y-axis
+      ring.rotation.z += (Math.random() - 0.5) * diskParams.tiltRange; // Random tilt along Z-axis
+
+      return ring;
+    };
+
+    // Create multiple rings with slight color variations
+    const baseColor = new THREE.Color(diskParams.baseColor);
+    for (let i = 0; i < diskParams.numRings; i++) {
+      const innerRadius = diskParams.innerRadius + i * 3; // Increment inner radius for each ring
+      const outerRadius = innerRadius + 2; // Outer radius slightly larger
+      const ring = createRing(innerRadius, outerRadius, baseColor);
+
+      scene.add(ring);
+      rings.push(ring); // Add to the array for later updates
+    }
+
+    // Animation: Rotate all rings slowly with wobble
+    const animateDiskRings = () => {
+      scene.traverse((child) => {
+        if (
+          (child as THREE.Mesh).geometry &&
+          (child as THREE.Mesh).geometry.type === "RingGeometry"
+        ) {
+          const mesh = child as THREE.Mesh;
+          mesh.rotation.z += 0.05; // Rotate each ring slightly
+          mesh.rotation.x += Math.sin(Date.now() * 0.0001) * 0.0005; // Add subtle wobble
+          mesh.rotation.y += Math.cos(Date.now() * 0.0001) * 0.0005;
+        }
+      });
+    };
     const createAbsorbingPlanet = () => {
       const planetParams = {
         radius: 10, // Size of the planet
@@ -697,9 +825,9 @@ function QuasarSimulation() {
       const flareParameters = {
         count: 10000, // Number of particles per ejection
         size: 3, // Initial size of particles
-        speed: 1, // Initial speed of particles
-        acceleration: 0.001, // Acceleration per frame
-        maxLifetime: 10, // Lifetime in seconds
+        speed: 3, // Initial speed of particles
+        acceleration: 0.01, // Acceleration per frame
+        maxLifetime: 20, // Lifetime in seconds
       };
 
       // Geometry for particles
@@ -862,18 +990,6 @@ function QuasarSimulation() {
 
     composer.addPass(distortionPass);
 
-    // add volumetricLightShader to the composer
-    const volumetricLightPass = new ShaderPass(volumetricLightShader);
-    // composer.addPass(volumetricLightPass);
-
-    let targetCoefficient = 0.5;
-    let targetPower = 2.0;
-
-    canvas.addEventListener("click", () => {
-      targetCoefficient = 1.0;
-      targetPower = 4.0;
-    });
-
     const triggerAbsorbingPlanets = () => {
       createAbsorbingPlanet(); // Create a new absorbing planet
     };
@@ -891,7 +1007,7 @@ function QuasarSimulation() {
       // Rotate the new core model
       const newCoreModel = scene.getObjectByName("coreModel");
       if (newCoreModel) {
-        newCoreModel.rotation.y = elapsedTime * 2;
+        newCoreModel.rotation.y = elapsedTime * 4;
       }
 
       // Animate jets
@@ -902,7 +1018,8 @@ function QuasarSimulation() {
       // Animate disk particles
       animateDiskParticles();
 
-      animateAccretionDisk();
+      // animateAccretionDisk();
+      animateDiskRings();
       // Render scene
       controls.update();
       composer.render();
