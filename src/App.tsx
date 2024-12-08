@@ -32,11 +32,26 @@ function QuasarSimulation() {
       0.1,
       1000 // Increased far clipping plane
     );
-    camera.position.set(0, 20, 50); // Move farther away
+    camera.position.set(0, 33, -4); // Move farther away
     camera.near = 0.1;
     camera.far = 2000; // Increase far clipping plane
     camera.updateProjectionMatrix();
+
     scene.add(camera);
+
+    const gui = new GUI();
+    // add gui for camera position
+    const cameraParams = { x: 100, y: 300, z: 50 };
+    // const gui = new GUI();
+    gui.add(cameraParams, "x", -100, 100).onChange((v: number) => {
+      camera.position.x = v;
+    });
+    gui.add(cameraParams, "y", -500, 500).onChange((v: number) => {
+      camera.position.y = v;
+    });
+    gui.add(cameraParams, "z", -100, 100).onChange((v: number) => {
+      camera.position.z = v;
+    });
 
     const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
@@ -53,7 +68,7 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.01, // Lowered strength (was 0.8)
+      0.07, // Lowered strength (was 0.8)
       0.001, // Slight radius for subtle effect
       0.25 // Higher threshold to exclude dimmer objects
     );
@@ -89,7 +104,6 @@ function QuasarSimulation() {
     };
 
     // GUI for bloom adjustments
-    const gui = new GUI();
     const bloomParams = { strength: 1.0, radius: 0.01, threshold: 0.25 };
     gui
       .add(bloomParams, "strength", 0, 0.09)
@@ -107,43 +121,204 @@ function QuasarSimulation() {
     const core = new THREE.Mesh(coreGeometry, coreMaterial);
     scene.add(core);
 
-    // Shader Glow for Core
-    const glowMaterial = new THREE.ShaderMaterial({
+    camera.lookAt(core.position);
+
+    const blackHoleMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        viewVector: { value: camera.position },
-        glowColor: { value: new THREE.Color(0x99ccff) },
-        coefficient: { value: 0.1 }, // Reduce intensity
-        power: { value: 0.8 }, // Lowered power
+        color: { value: new THREE.Color(0x000000) },
+        edgeGlow: { value: new THREE.Color(0x333333) }, // Glow around the event horizon
       },
       vertexShader: `
-        uniform vec3 viewVector;
-        uniform float power;
-        varying float intensity;
-    
+        varying vec3 vPosition;
         void main() {
-          vec3 vNormal = normalize(normalMatrix * normal);
-          vec3 vNormView = normalize(viewVector - (modelViewMatrix * vec4(position, 1.0)).xyz);
-          intensity = pow(dot(vNormal, vNormView), power);
+          vPosition = position;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
       fragmentShader: `
-        uniform vec3 glowColor;
+        uniform vec3 color;
+        uniform vec3 edgeGlow;
+        varying vec3 vPosition;
+        
+        void main() {
+          float radius = length(vPosition.xy);
+          float glow = smoothstep(0.8, 1.0, radius); // Soft edge glow
+          vec3 finalColor = mix(color, edgeGlow, glow);
+          gl_FragColor = vec4(finalColor, 1.0 - radius); // Transparent at the edges
+        }
+      `,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    const eventHorizon = new THREE.Mesh(
+      new THREE.SphereGeometry(5, 64, 64),
+      blackHoleMaterial
+    );
+    scene.add(eventHorizon);
+
+    const lensingShader = {
+      uniforms: {
+        tDiffuse: { value: null },
+        distortionStrength: { value: 0.05 },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D tDiffuse;
+        uniform float distortionStrength;
+        varying vec2 vUv;
+    
+        void main() {
+          vec2 distortedUv = vUv - 0.5;
+          float radius = length(distortedUv);
+          distortedUv *= 1.0 + distortionStrength / (radius); // Lens effect
+          distortedUv += 0.5;
+    
+          vec4 color = texture2D(tDiffuse, distortedUv);
+          gl_FragColor = vec4(color.rgb, 1.0);
+        }
+      `,
+    };
+    const lensingPass = new ShaderPass(lensingShader);
+    composer.addPass(lensingPass);
+
+    // add control for distortion strength
+    const distortionParams = { strength: 0.05 };
+    gui
+      .add(distortionParams, "strength", 0, 0.05)
+      .onChange(
+        (v: number) => (lensingPass.uniforms.distortionStrength.value = v)
+      );
+
+    const diskParams = {
+      count: 10000,
+      radius: 10,
+      spin: 2.0,
+    };
+
+    const accretionDiskGeometry = new THREE.BufferGeometry();
+    const diskPositions = new Float32Array(diskParams.count * 3);
+    const diskColors = new Float32Array(diskParams.count * 3);
+
+    // rotate the disk so that it's perpendicular to the jet streams
+    // accretionDiskGeometry.rotateX(Math.PI / 2);
+
+    for (let i = 0; i < diskParams.count; i++) {
+      const angle = (i / diskParams.count) * Math.PI * 2 * diskParams.spin;
+      const distance = Math.random() * diskParams.radius;
+      const height = (Math.random() - 0.5) * 0.1; // Slight vertical variation
+
+      diskPositions[i * 3] = Math.cos(angle) * distance;
+      diskPositions[i * 3 + 1] = Math.sin(angle) * distance;
+      diskPositions[i * 3 + 2] = height;
+
+      diskColors[i * 3] = 1.0; // Red
+      diskColors[i * 3 + 1] = 0.5; // Orange
+      diskColors[i * 3 + 2] = 0.2; // Yellow
+    }
+
+    accretionDiskGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(diskPositions, 3)
+    );
+    accretionDiskGeometry.setAttribute(
+      "color",
+      new THREE.BufferAttribute(diskColors, 3)
+    );
+
+    const accretionDiskMaterial = new THREE.PointsMaterial({
+      size: 0.05,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    const accretionDisk = new THREE.Points(
+      accretionDiskGeometry,
+      accretionDiskMaterial
+    );
+    scene.add(accretionDisk);
+
+    // Rotation Animation
+    const animateAccretionDisk = () => {
+      accretionDisk.rotation.z += 0.2;
+    };
+
+    // Shader Glow for Core
+    // const glowMaterial = new THREE.ShaderMaterial({
+    //   uniforms: {
+    //     viewVector: { value: camera.position },
+    //     glowColor: { value: new THREE.Color(0x99ccff) },
+    //     coefficient: { value: 0.1 }, // Reduce intensity
+    //     power: { value: 0.8 }, // Lowered power
+    //   },
+    //   vertexShader: `
+    //     uniform vec3 viewVector;
+    //     uniform float power;
+    //     varying float intensity;
+
+    //     void main() {
+    //       vec3 vNormal = normalize(normalMatrix * normal);
+    //       vec3 vNormView = normalize(viewVector - (modelViewMatrix * vec4(position, 1.0)).xyz);
+    //       intensity = pow(dot(vNormal, vNormView), power);
+    //       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    //     }
+    //   `,
+    //   fragmentShader: `
+    //     uniform vec3 glowColor;
+    //     varying float intensity;
+
+    //     void main() {
+    //       gl_FragColor = vec4(glowColor * intensity, 1.0);
+    //     }
+    //   `,
+    //   side: THREE.BackSide,
+    //   blending: THREE.AdditiveBlending,
+    //   transparent: true,
+    //   depthWrite: false,
+    // });
+
+    const glowGeometry = new THREE.SphereGeometry(1.2, 32, 32); // Slightly larger than core
+
+    const glowMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        time: { value: 0 },
+        baseColor: { value: new THREE.Color(0x99ccff) },
+      },
+      vertexShader: `
+        uniform float time;
         varying float intensity;
     
         void main() {
-          gl_FragColor = vec4(glowColor * intensity, 1.0);
+          intensity = 0.5 + 0.5 * sin(time * 3.0); // Pulsating intensity
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
-      side: THREE.BackSide,
-      blending: THREE.AdditiveBlending,
+      fragmentShader: `
+        uniform vec3 baseColor;
+        varying float intensity;
+    
+        void main() {
+          gl_FragColor = vec4(baseColor * intensity, 1.0);
+        }
+      `,
       transparent: true,
       depthWrite: false,
+      blending: THREE.AdditiveBlending,
     });
 
-    const glowGeometry = new THREE.SphereGeometry(1.2, 32, 32); // Slightly larger than core
     const glow = new THREE.Mesh(glowGeometry, glowMaterial);
     scene.add(glow);
+    // Animate pulsation
+    const animateGlow = (time: number): void => {
+      glowMaterial.uniforms.time.value = time;
+    };
 
     // Jets
     const jetParameters = {
@@ -311,8 +486,8 @@ function QuasarSimulation() {
 
     const createAbsorbingPlanet = () => {
       const planetParams = {
-        radius: 6, // Size of the planet
-        orbitRadius: 60, // Starting distance from the core
+        radius: 3, // Size of the planet
+        orbitRadius: 40, // Starting distance from the core
         angularSpeed: 0.05, // Angular velocity (for spiral motion)
         radialSpeed: 0.1, // Speed at which it moves toward the core
         tailSegments: 50, // Number of segments in the tail
@@ -759,29 +934,6 @@ function QuasarSimulation() {
     };
     triggerAbsorbingPlanets();
 
-    const updateGlowEffect = (elapsedTime: number) => {
-      glowMaterial.uniforms.coefficient.value +=
-        (targetCoefficient - glowMaterial.uniforms.coefficient.value) * 0.1;
-      glowMaterial.uniforms.power.value +=
-        (targetPower - glowMaterial.uniforms.power.value) * 0.1;
-
-      // Add pulsation effect
-      glowMaterial.uniforms.coefficient.value +=
-        Math.sin(elapsedTime * 2) * 0.02;
-    };
-
-    canvas.addEventListener("click", () => {
-      // Temporarily boost the glow intensity
-      glowMaterial.uniforms.coefficient.value = 1.0;
-      glowMaterial.uniforms.power.value = 4.0;
-
-      // Gradually return to normal
-      setTimeout(() => {
-        glowMaterial.uniforms.coefficient.value = 0.5;
-        glowMaterial.uniforms.power.value = 2.0;
-      }, 500); // Reset after 500ms
-    });
-
     // Animation Loop
     const clock = new THREE.Clock();
 
@@ -790,7 +942,7 @@ function QuasarSimulation() {
 
       // Animate core and glow
       core.rotation.y = elapsedTime * 0.5;
-      updateGlowEffect(elapsedTime);
+      // updateGlowEffect(elapsedTime);
 
       // Animate galaxy disk
       animateDisk();
@@ -803,6 +955,8 @@ function QuasarSimulation() {
       // Animate disk particles
       animateDiskParticles();
 
+      animateAccretionDisk();
+      animateGlow(elapsedTime);
       // Render scene
       controls.update();
       composer.render();
