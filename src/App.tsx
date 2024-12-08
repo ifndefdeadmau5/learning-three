@@ -119,26 +119,16 @@ function QuasarSimulation() {
     // Jets
     const createJetStreams = () => {
       const jetParameters = {
-        count: 1000, // Number of particles
-        radius: 2, // Starting radius of the jet
-        height: 1000, // Maximum height of the jet
-        spread: 0.01, // Initial spread factor
-        acceleration: 0.01, // Rate of acceleration
-        speed: 0.5 * 8, // Base speed of particles
-        turbulence: 0.01, // Randomness in motion
+        count: 30000, // Increase the number of particles
+        radius: 0.5, // Increase starting radius for a denser emission
+        height: 1000,
+        spread: 0.2,
+        acceleration: 0.01,
+        speed: 2.0, // Slightly faster initial speed
+        turbulence: 0.03,
       };
 
       const jetGeometry = new THREE.BufferGeometry();
-      jetGeometry.setAttribute(
-        "size",
-        new THREE.BufferAttribute(
-          Float32Array.from(
-            { length: jetParameters.count },
-            () => Math.random() * 5 + 1
-          ),
-          1
-        )
-      );
       const positions = new Float32Array(jetParameters.count * 3);
       const velocities = new Float32Array(jetParameters.count * 3); // Velocity for each particle
 
@@ -146,16 +136,18 @@ function QuasarSimulation() {
         const angle = Math.random() * Math.PI * 2; // Random angle for circular spread
         const radius = Math.random() * jetParameters.radius;
 
-        // Initial positions slightly offset from the core
+        // Pre-spread particles along the height of the jet
+        const progress = Math.random() * jetParameters.height; // Random position along height
+
         positions[i * 3] = Math.cos(angle) * radius; // X
         positions[i * 3 + 1] = Math.sin(angle) * radius; // Y
-        positions[i * 3 + 2] = 0; // Z (start at the core)
+        positions[i * 3 + 2] = progress * (Math.random() < 0.5 ? 1 : -1); // Z (up/down direction)
 
-        // Initial velocities with slight randomness
         velocities[i * 3] = (Math.random() - 0.5) * jetParameters.turbulence; // X velocity
         velocities[i * 3 + 1] =
           (Math.random() - 0.5) * jetParameters.turbulence; // Y velocity
-        velocities[i * 3 + 2] = Math.random() * jetParameters.speed; // Z velocity (positive or negative for bidirectional jets)
+        velocities[i * 3 + 2] =
+          jetParameters.speed * (Math.random() < 0.5 ? 1 : -1); // Z velocity
       }
 
       jetGeometry.setAttribute(
@@ -165,6 +157,13 @@ function QuasarSimulation() {
       jetGeometry.setAttribute(
         "velocity",
         new THREE.BufferAttribute(velocities, 3)
+      );
+
+      const lifetimes = new Float32Array(jetParameters.count).fill(1.0); // Full opacity initially
+
+      jetGeometry.setAttribute(
+        "lifetime",
+        new THREE.BufferAttribute(lifetimes, 1)
       );
 
       const jetMaterial = new THREE.ShaderMaterial({
@@ -177,11 +176,11 @@ function QuasarSimulation() {
     
           void main() {
             vOpacity = 1.0 - (abs(position.z) / 100.0); // Fade opacity with distance
-    
+
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
             gl_Position = projectionMatrix * mvPosition;
-            gl_PointSize = 8.0 * (300.0 / max(-mvPosition.z, 0.1)); // Scale particles based on depth
-          }
+            gl_PointSize = 4.0 * (300.0 / max(-mvPosition.z, 0.1)); // Scale particles based on depth
+}
         `,
         fragmentShader: `
           uniform vec3 color;
@@ -189,6 +188,7 @@ function QuasarSimulation() {
     
           void main() {
             gl_FragColor = vec4(color, vOpacity); // Color with variable opacity
+            
           }
         `,
         transparent: true,
@@ -203,6 +203,24 @@ function QuasarSimulation() {
           .array as Float32Array;
         const velocities = jets.geometry.attributes.velocity
           .array as Float32Array;
+
+        // const lifetimes = jets.geometry.attributes.lifetime
+        //   .array as Float32Array;
+
+        // for (let i = 0; i < positions.length / 3; i++) {
+        //   lifetimes[i] -= 0.05; // Gradually decrease lifetime
+        //   if (lifetimes[i] <= 0) {
+        //     // Reset position and lifetime
+        //     positions[i * 3] =
+        //       Math.cos(Math.random() * Math.PI * 2) * jetParameters.radius;
+        //     positions[i * 3 + 1] =
+        //       Math.sin(Math.random() * Math.PI * 2) * jetParameters.radius;
+        //     positions[i * 3 + 2] = 0; // Reset to core
+        //     lifetimes[i] = 1.0; // Reset lifetime
+        //   }
+        // }
+
+        jets.geometry.attributes.lifetime.needsUpdate = true;
 
         for (let i = 0; i < positions.length; i += 3) {
           // Apply velocity to positions
@@ -220,20 +238,27 @@ function QuasarSimulation() {
 
           // Reset particles that exceed the height limit
           if (Math.abs(positions[i + 2]) > jetParameters.height) {
+            // Reset particle to a random position near the core, but with slight offset
             positions[i] =
               Math.cos(Math.random() * Math.PI * 2) * jetParameters.radius;
             positions[i + 1] =
               Math.sin(Math.random() * Math.PI * 2) * jetParameters.radius;
+            // positions[i + 2] = Math.random() * -jetParameters.height; // Randomize reset position
             positions[i + 2] = 0;
 
+            // Assign new random velocities
             velocities[i] = (Math.random() - 0.5) * jetParameters.turbulence;
             velocities[i + 1] =
               (Math.random() - 0.5) * jetParameters.turbulence;
             velocities[i + 2] =
-              Math.random() *
-              jetParameters.speed *
-              (Math.random() < 0.5 ? 1 : -1);
+              jetParameters.speed * (Math.random() < 0.5 ? 1 : -1);
           }
+
+          const turbulence =
+            Math.sin(performance.now() * 0.001) * jetParameters.turbulence;
+
+          velocities[i] += turbulence;
+          velocities[i + 1] += turbulence;
         }
 
         jets.geometry.attributes.position.needsUpdate = true;
