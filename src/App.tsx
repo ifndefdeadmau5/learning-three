@@ -60,8 +60,8 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.07, // Lowered strength (was 0.8)
-      0.001, // Slight radius for subtle effect
+      0.3, // Lowered strength (was 0.8)
+      0.01, // Slight radius for subtle effect
       0.25 // Higher threshold to exclude dimmer objects
     );
     composer.addPass(bloomPass);
@@ -399,9 +399,9 @@ function QuasarSimulation() {
 
     // Disk Parameters
     const diskParams = {
-      numRings: 30, // Number of rings
-      innerRadius: 10, // Inner radius of the innermost ring
-      outerRadius: 40, // Outer radius of the outermost ring
+      numRings: 10, // Number of rings
+      innerRadius: 20, // Inner radius of the innermost ring
+      outerRadius: 150, // Outer radius of the outermost ring
       heightVariation: 0.2, // Vertical turbulence
       baseColor: "#FBA209", // Base color for gas (orange)
       tiltRange: Math.PI / 6, // Maximum tilt angle (~45 degrees)
@@ -440,7 +440,7 @@ function QuasarSimulation() {
       const ringGeometry = new THREE.RingGeometry(
         innerRadius,
         outerRadius,
-        500
+        1000
       );
       const positions = ringGeometry.attributes.position.array;
 
@@ -472,11 +472,11 @@ function QuasarSimulation() {
 
       // Load texture for the rings
       const diskTexture = new THREE.TextureLoader().load(
-        "/textures/transparent/smoke_01.png"
+        "/textures/transparent/smoke_02.png"
       );
       diskTexture.wrapS = THREE.RepeatWrapping;
       diskTexture.wrapT = THREE.RepeatWrapping;
-      diskTexture.repeat.set(10, 1); // Adjust texture tiling
+      diskTexture.repeat.set(1000, 100); // Adjust texture tiling
 
       // Generate a slightly randomized color based on the base color
       const color = randomizeColor(baseColor, diskParams.colorVariation);
@@ -522,17 +522,21 @@ function QuasarSimulation() {
         ) {
           const mesh = child as THREE.Mesh;
           mesh.rotation.z += 0.05; // Rotate each ring slightly
-          mesh.rotation.x += Math.sin(Date.now() * 0.0001) * 0.0005; // Add subtle wobble
+          // mesh.rotation.x += Math.sin(Date.now() * 0.0001) * 0.0005; // Add subtle wobble
           mesh.rotation.y += Math.cos(Date.now() * 0.0001) * 0.0005;
         }
       });
     };
+    // Store the number of created planets for orbit variation
+    let planetCount = 0;
+
+    // Modified createAbsorbingPlanet function
     const createAbsorbingPlanet = () => {
       const planetParams = {
         radius: 10, // Size of the planet
-        orbitRadius: 70, // Starting distance from the core
+        orbitRadius: 50 + planetCount * 20, // Vary the starting distance based on the number of planets
         angularSpeed: 0.07, // Angular velocity (for spiral motion)
-        radialSpeed: 0.1, // Speed at which it moves toward the core
+        radialSpeed: 0.5, // Speed at which it moves toward the core
         tailSegments: 100, // Number of segments in the tail
         tailSize: 10, // Base size of tail particles
       };
@@ -592,33 +596,33 @@ function QuasarSimulation() {
           opacity: { value: 1 }, // Adjust opacity
         },
         vertexShader: `
-          attribute float size;
-          varying float vSize;
-      
-          void main() {
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            vSize = size;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = size * (500.0 / max(-mvPosition.z, 0.001));
-          }
-        `,
+      attribute float size;
+      varying float vSize;
+  
+      void main() {
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+        vSize = size;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * (500.0 / max(-mvPosition.z, 0.001));
+      }
+    `,
         fragmentShader: `
-          varying float vSize;
-          uniform sampler2D pointTexture;
-          uniform float opacity;
-      
-          void main() {
-            vec4 color = texture2D(pointTexture, gl_PointCoord);
-            gl_FragColor = vec4(color.rgb, color.a * opacity); // Use uniform opacity
-          }
-        `,
+      varying float vSize;
+      uniform sampler2D pointTexture;
+      uniform float opacity;
+  
+      void main() {
+        vec4 color = texture2D(pointTexture, gl_PointCoord);
+        gl_FragColor = vec4(color.rgb, color.a * opacity); // Use uniform opacity
+      }
+    `,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
       });
 
       const tail = new THREE.Points(tailGeometry, tailMaterial);
-      scene.add(tail);
+      // scene.add(tail);
 
       // Spiral motion logic
       let angle = 0; // Current angle
@@ -667,15 +671,18 @@ function QuasarSimulation() {
           fadeOutObject(tail);
           clearInterval(animationInterval); // Stop animation
           createCoreEjectionFlare();
-          setTimeout(() => {
-            createAbsorbingPlanet();
-          }, 5000);
         }
       };
 
       // Animate the planet and tail
       const animationInterval = setInterval(animatePlanet, 50); // Update every 50ms
+
+      // Increment the planet count for orbit variation
+      planetCount++;
     };
+
+    // Add an event listener for clicks to create absorbing planets
+    canvas.addEventListener("click", createAbsorbingPlanet);
 
     // Utility function to fade out and remove objects
     const fadeOutObject = (object: THREE.Object3D) => {
@@ -824,10 +831,10 @@ function QuasarSimulation() {
     const createCoreEjectionFlare = () => {
       const flareParameters = {
         count: 10000, // Number of particles per ejection
-        size: 3, // Initial size of particles
-        speed: 3, // Initial speed of particles
-        acceleration: 0.01, // Acceleration per frame
-        maxLifetime: 20, // Lifetime in seconds
+        size: 5, // Initial size of particles
+        speed: 2.5, // Initial speed of particles
+        acceleration: 0.25, // Acceleration per frame
+        maxLifetime: 5, // Lifetime in seconds
       };
 
       // Geometry for particles
@@ -865,7 +872,7 @@ function QuasarSimulation() {
       const material = new THREE.PointsMaterial({
         size: flareParameters.size,
         // the color of the random planets that teared off from the quasar, something other than orange, similar with the cold ice color
-        color: 0x4682b4,
+        color: 0xffe5c4,
         map: new THREE.TextureLoader().load(
           "/textures/transparent/star_05.png"
         ),
@@ -982,18 +989,13 @@ function QuasarSimulation() {
     // const distortionPass = new ShaderPass(lensDistortionShader);
     const distortionPass = new ShaderPass(lensDistortionShader);
     distortionPass.uniforms.center.value = new THREE.Vector2(0.5, 0.5); // Center on screen
-    distortionPass.uniforms.radius.value = 0.3; // Base distortion radius
-    distortionPass.uniforms.smoothness.value = 0.1;
-    distortionPass.uniforms.strength.value = 0.2;
+    distortionPass.uniforms.radius.value = 1; // Base distortion radius
+    distortionPass.uniforms.smoothness.value = 0.5;
+    distortionPass.uniforms.strength.value = 0.4;
 
     composer.addPass(distortionPass);
 
     composer.addPass(distortionPass);
-
-    const triggerAbsorbingPlanets = () => {
-      createAbsorbingPlanet(); // Create a new absorbing planet
-    };
-    triggerAbsorbingPlanets();
 
     // Animation Loop
     const clock = new THREE.Clock();
