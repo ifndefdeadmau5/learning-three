@@ -119,66 +119,123 @@ function QuasarSimulation() {
     // Jets
     const createJetStreams = () => {
       const jetParameters = {
-        count: 100000,
-        radius: 1,
-        height: 100,
-        speed: 5,
+        count: 1000, // Number of particles
+        radius: 2, // Starting radius of the jet
+        height: 1000, // Maximum height of the jet
+        spread: 0.01, // Initial spread factor
+        acceleration: 0.01, // Rate of acceleration
+        speed: 0.5 * 8, // Base speed of particles
+        turbulence: 0.01, // Randomness in motion
       };
 
       const jetGeometry = new THREE.BufferGeometry();
+      jetGeometry.setAttribute(
+        "size",
+        new THREE.BufferAttribute(
+          Float32Array.from(
+            { length: jetParameters.count },
+            () => Math.random() * 5 + 1
+          ),
+          1
+        )
+      );
       const positions = new Float32Array(jetParameters.count * 3);
+      const velocities = new Float32Array(jetParameters.count * 3); // Velocity for each particle
 
       for (let i = 0; i < jetParameters.count; i++) {
-        const angle = Math.random() * Math.PI * 2; // Circular spread
+        const angle = Math.random() * Math.PI * 2; // Random angle for circular spread
         const radius = Math.random() * jetParameters.radius;
-        const height =
-          Math.random() * jetParameters.height * (Math.random() < 0.5 ? 1 : -1);
 
-        const x = Math.cos(angle) * radius;
-        const z = Math.sin(angle) * radius; // Z-axis (vertical)
-        const y = height; // Jet height along the Y-axis
+        // Initial positions slightly offset from the core
+        positions[i * 3] = Math.cos(angle) * radius; // X
+        positions[i * 3 + 1] = Math.sin(angle) * radius; // Y
+        positions[i * 3 + 2] = 0; // Z (start at the core)
 
-        positions[i * 3] = x; // X-coordinate
-        positions[i * 3 + 1] = y; // Y-coordinate
-        positions[i * 3 + 2] = z; // Z-coordinate
+        // Initial velocities with slight randomness
+        velocities[i * 3] = (Math.random() - 0.5) * jetParameters.turbulence; // X velocity
+        velocities[i * 3 + 1] =
+          (Math.random() - 0.5) * jetParameters.turbulence; // Y velocity
+        velocities[i * 3 + 2] = Math.random() * jetParameters.speed; // Z velocity (positive or negative for bidirectional jets)
       }
 
       jetGeometry.setAttribute(
         "position",
         new THREE.BufferAttribute(positions, 3)
       );
+      jetGeometry.setAttribute(
+        "velocity",
+        new THREE.BufferAttribute(velocities, 3)
+      );
 
-      const jetMaterial = new THREE.PointsMaterial({
-        size: 0.005,
-        color: 0x00ccff,
-        blending: THREE.AdditiveBlending,
+      const jetMaterial = new THREE.ShaderMaterial({
+        uniforms: {
+          color: { value: new THREE.Color(0x99ccff) },
+        },
+        vertexShader: `
+          attribute float size;
+          varying float vOpacity;
+    
+          void main() {
+            vOpacity = 1.0 - (abs(position.z) / 100.0); // Fade opacity with distance
+    
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
+            gl_Position = projectionMatrix * mvPosition;
+            gl_PointSize = 8.0 * (300.0 / max(-mvPosition.z, 0.1)); // Scale particles based on depth
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 color;
+          varying float vOpacity;
+    
+          void main() {
+            gl_FragColor = vec4(color, vOpacity); // Color with variable opacity
+          }
+        `,
         transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
       });
 
       const jets = new THREE.Points(jetGeometry, jetMaterial);
 
-      // Rotate the jets to align along the Z-axis
-      jets.rotation.x = Math.PI / 2;
-
-      scene.add(jets);
-
-      // Animate the jets in the animation loop
       const animateJets = () => {
         const positions = jets.geometry.attributes.position
           .array as Float32Array;
+        const velocities = jets.geometry.attributes.velocity
+          .array as Float32Array;
 
         for (let i = 0; i < positions.length; i += 3) {
-          positions[i + 1] += Math.random() * jetParameters.speed; // Move particles along the Y-axis
-          // positions[i + 1] += jetParameters.speed * 0.1; // Smooth upward/downward motion
+          // Apply velocity to positions
+          positions[i] += velocities[i];
+          positions[i + 1] += velocities[i + 1];
+          positions[i + 2] += velocities[i + 2];
 
-          // Reset particle position when out of bounds
-          if (positions[i + 1] > jetParameters.height)
-            positions[i + 1] = -jetParameters.height;
-          if (positions[i + 1] < -jetParameters.height)
-            positions[i + 1] = jetParameters.height;
+          // Gradually increase spread over time
+          velocities[i] += (Math.random() - 0.5) * jetParameters.spread;
+          velocities[i + 1] += (Math.random() - 0.5) * jetParameters.spread;
 
-          // jetMaterial.opacity = jetOpacity(positions[i + 1]); // Adjust opacity based on distance
+          // Accelerate particles along Z-axis
+          velocities[i + 2] +=
+            jetParameters.acceleration * (velocities[i + 2] > 0 ? 1 : -1);
+
+          // Reset particles that exceed the height limit
+          if (Math.abs(positions[i + 2]) > jetParameters.height) {
+            positions[i] =
+              Math.cos(Math.random() * Math.PI * 2) * jetParameters.radius;
+            positions[i + 1] =
+              Math.sin(Math.random() * Math.PI * 2) * jetParameters.radius;
+            positions[i + 2] = 0;
+
+            velocities[i] = (Math.random() - 0.5) * jetParameters.turbulence;
+            velocities[i + 1] =
+              (Math.random() - 0.5) * jetParameters.turbulence;
+            velocities[i + 2] =
+              Math.random() *
+              jetParameters.speed *
+              (Math.random() < 0.5 ? 1 : -1);
+          }
         }
+
         jets.geometry.attributes.position.needsUpdate = true;
       };
 
@@ -186,7 +243,14 @@ function QuasarSimulation() {
     };
 
     // Call this function to create the jets
-    const { jets, animateJets } = createJetStreams();
+
+    const { jets: jetUp, animateJets: animateJetUp } = createJetStreams();
+    const { jets: jetDown, animateJets: animateJetDown } = createJetStreams();
+
+    jetDown.rotation.x = Math.PI; // Flip the second jet for downward emission
+
+    scene.add(jetUp);
+    scene.add(jetDown);
 
     const createAbsorbingPlanet = () => {
       const planetParams = {
@@ -281,10 +345,14 @@ function QuasarSimulation() {
         angle += planetParams.angularSpeed; // Increment angle
         currentRadius -= planetParams.radialSpeed; // Decrease radius
 
-        // Update planet position
-        const x = Math.cos(angle) * currentRadius;
-        const z = Math.sin(angle) * currentRadius;
-        const y = (Math.random() - 0.5) * 0.2; // Slight vertical wobble
+        // Smooth vertical motion using a sinusoidal function
+        const zOscillation = Math.sin(angle * 2) * 0.05; // Small oscillation along Z-axis
+
+        // Update planet position (aligned with the XY plane)
+        const x = Math.cos(angle) * currentRadius; // Spiral along the X-axis
+        const y = Math.sin(angle) * currentRadius; // Spiral along the Y-axis
+        const z = zOscillation; // Smooth and subtle oscillation
+
         planet.position.set(x, y, z);
 
         // Update tail positions
@@ -294,10 +362,13 @@ function QuasarSimulation() {
         for (let i = 0; i < planetParams.tailSegments; i++) {
           const t = i / (planetParams.tailSegments - 1); // Interpolation factor (0 to 1)
 
-          // Interpolate between the core and the planet
-          const tx = x * t;
-          const ty = y * t;
-          const tz = z * t;
+          // Calculate spiral offset for each segment
+          const segmentAngle = angle - t * Math.PI * 2; // Spread the segments around the spiral
+          const segmentRadius = currentRadius * (1 - t); // Gradually reduce the radius
+
+          const tx = Math.cos(segmentAngle) * segmentRadius; // Align with X-axis
+          const ty = Math.sin(segmentAngle) * segmentRadius; // Align with Y-axis
+          const tz = zOscillation * (1 - t); // Gradually reduce oscillation toward core
 
           tailPositions[i * 3] = tx;
           tailPositions[i * 3 + 1] = ty;
@@ -312,6 +383,7 @@ function QuasarSimulation() {
           fadeOutObject(planet);
           fadeOutObject(tail);
           clearInterval(animationInterval); // Stop animation
+          createAbsorbingPlanet();
         }
       };
 
@@ -370,12 +442,12 @@ function QuasarSimulation() {
     };
     createStarfield();
     const diskParameters = {
-      count: 20000, // Number of particles
-      radius: 30, // Maximum radius of the disk
-      branches: 4, // Number of spiral arms
+      count: 2000, // Number of particles
+      radius: 60, // Maximum radius of the disk
+      branches: 2, // Number of spiral arms
       randomness: 0.3, // Randomness factor for particle positioning
       heightVariation: 0.1, // Vertical randomness
-      spin: 1.0, // Spin factor for the spiral arms
+      spin: 0.001, // Spin factor for the spiral arms
     };
 
     const createGalaxyDisk = () => {
@@ -418,7 +490,7 @@ function QuasarSimulation() {
       );
 
       const diskMaterial = new THREE.PointsMaterial({
-        size: 0.005, // Particle size
+        size: 0.5, // Particle size
         color: 0xffcc00, // Yellowish glow
         blending: THREE.AdditiveBlending,
         transparent: true,
@@ -626,11 +698,9 @@ function QuasarSimulation() {
     });
 
     const triggerAbsorbingPlanets = () => {
-      setInterval(() => {
-        createAbsorbingPlanet(); // Create a new absorbing planet
-      }, 5000); // Every 5 seconds
+      createAbsorbingPlanet(); // Create a new absorbing planet
     };
-    triggerAbsorbingPlanets();
+    // triggerAbsorbingPlanets();
 
     const updateGlowEffect = (elapsedTime: number) => {
       glowMaterial.uniforms.coefficient.value +=
@@ -669,7 +739,9 @@ function QuasarSimulation() {
       animateDisk();
 
       // Animate jets
-      animateJets();
+      // Update animations
+      animateJetUp();
+      animateJetDown();
 
       // Animate disk particles
       animateDiskParticles();
