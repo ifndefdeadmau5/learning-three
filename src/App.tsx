@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import GUI from "lil-gui";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
@@ -106,17 +107,36 @@ function QuasarSimulation() {
       .add(bloomParams, "threshold", 0, 1)
       .onChange((v: number) => (bloomPass.threshold = v));
 
-    // Quasar Core
-    // const coreMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff });
-    // const coreGeometry = new THREE.SphereGeometry(1, 32, 32);
-    // const core = new THREE.Mesh(coreGeometry, coreMaterial);
-    // Core of the black hole
-    const coreGeometry = new THREE.SphereGeometry(5, 64, 64);
-    const coreMaterial = new THREE.MeshBasicMaterial({ color: 0x000000 });
-    const core = new THREE.Mesh(coreGeometry, coreMaterial);
-    scene.add(core);
+    // GLTF Loader
+    const loader = new GLTFLoader();
 
-    camera.lookAt(core.position);
+    // Load the 3D model
+    loader.load(
+      "/models/blackhole.glb", // Replace with the correct path to your model
+      (gltf) => {
+        const coreModel = gltf.scene;
+
+        // Scale and position the model
+        coreModel.scale.set(20, 20, 20); // Adjust the scale as needed
+        coreModel.position.set(0, 0, 0); // Center the model at the origin
+        coreModel.rotation.set(Math.PI / 2, 0, 0); // Rotate if necessary
+
+        // Add a name to identify the new core model (optional)
+        coreModel.name = "coreModel";
+
+        // Add the new core model to the scene
+        scene.add(coreModel);
+      },
+      (xhr) => {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      (error) => {
+        console.error("An error occurred loading the 3D model:", error);
+      }
+    );
+
+    const newCoreModel = scene.getObjectByName("coreModel");
+    if (newCoreModel) camera.lookAt(newCoreModel.position);
 
     const blackHoleMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -143,7 +163,7 @@ function QuasarSimulation() {
         }
       `,
       transparent: true,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
     });
     const eventHorizon = new THREE.Mesh(
       new THREE.SphereGeometry(5, 64, 64),
@@ -228,116 +248,25 @@ function QuasarSimulation() {
       accretionDiskGeometry,
       accretionDiskMaterial
     );
-    scene.add(accretionDisk);
+    // scene.add(accretionDisk);
 
     // Rotation Animation
     const animateAccretionDisk = () => {
       accretionDisk.rotation.z += 0.2;
     };
 
-    // Shader Glow for Core
-    // const glowMaterial = new THREE.ShaderMaterial({
-    //   uniforms: {
-    //     viewVector: { value: camera.position },
-    //     glowColor: { value: new THREE.Color(0x99ccff) },
-    //     coefficient: { value: 0.1 }, // Reduce intensity
-    //     power: { value: 0.8 }, // Lowered power
-    //   },
-    //   vertexShader: `
-    //     uniform vec3 viewVector;
-    //     uniform float power;
-    //     varying float intensity;
-
-    //     void main() {
-    //       vec3 vNormal = normalize(normalMatrix * normal);
-    //       vec3 vNormView = normalize(viewVector - (modelViewMatrix * vec4(position, 1.0)).xyz);
-    //       intensity = pow(dot(vNormal, vNormView), power);
-    //       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    //     }
-    //   `,
-    //   fragmentShader: `
-    //     uniform vec3 glowColor;
-    //     varying float intensity;
-
-    //     void main() {
-    //       gl_FragColor = vec4(glowColor * intensity, 1.0);
-    //     }
-    //   `,
-    //   side: THREE.BackSide,
-    //   blending: THREE.AdditiveBlending,
-    //   transparent: true,
-    //   depthWrite: false,
-    // });
-
-    const glowGeometry = new THREE.SphereGeometry(5.2, 32, 32); // Slightly larger than core
-
-    const glowMaterial = new THREE.ShaderMaterial({
-      uniforms: {
-        time: { value: 0 },
-        baseColor: { value: new THREE.Color(0x99ccff) },
-      },
-      vertexShader: `
-        uniform float time;
-        varying float intensity;
-    
-        void main() {
-          intensity = 0.5 + 0.5 * sin(time * 3.0); // Pulsating intensity
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 baseColor;
-        varying float intensity;
-    
-        void main() {
-          gl_FragColor = vec4(baseColor * intensity, 1.0);
-        }
-      `,
-      transparent: true,
-      depthWrite: false,
-      blending: THREE.AdditiveBlending,
-    });
-
-    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
-    scene.add(glow);
-    // Animate pulsation
-    const animateGlow = (time: number): void => {
-      glowMaterial.uniforms.time.value = time;
-    };
-
     // Jets
     const jetParameters = {
-      count: 10000, // Increase the number of particles
-      radius: 0.5, // Increase starting radius for a denser emission
+      count: 20000, // Increase the number of particles
+      radius: 0.05, // Increase starting radius for a denser emission
       height: 1000,
       spread: 0.05,
-      acceleration: 0.01,
-      speed: 1.5, // Slightly faster initial speed
+      acceleration: 0.02,
+      speed: 1, // Slightly faster initial speed
       turbulence: 0.0054,
     };
 
-    const jetParams = { speed: 1.5, turbulence: 0.02, spread: 0.2 };
-    // gui
-    //   .add(jetParams, "speed", 0.1, 5)
-    //   .onChange((v: number) => (jetParameters.speed = v));
-    // gui
-    //   .add(jetParams, "turbulence", 0.0, 0.1)
-    //   .onChange((v: number) => (jetParameters.turbulence = v));
-    // gui
-    //   .add(jetParams, "spread", 0.0, 0.5)
-    //   .onChange((v: number) => (jetParameters.spread = v));
-
     const createJetStreams = () => {
-      // const jetParameters = {
-      //   count: 50000, // Higher particle count for denser streams
-      //   radius: 1.5, // Wider initial spread
-      //   height: 1200, // Increased jet height
-      //   spread: 0.03, // Larger spread for a gas-like effect
-      //   acceleration: 0.005, // Reduce acceleration for smoother motion
-      //   speed: 1.5, // Adjust initial speed
-      //   turbulence: 0.02, // Subtle randomness
-      // };
-
       const jetGeometry = new THREE.BufferGeometry();
       const positions = new Float32Array(jetParameters.count * 3);
       const velocities = new Float32Array(jetParameters.count * 3); // Velocity for each particle
@@ -378,32 +307,33 @@ function QuasarSimulation() {
 
       const jetMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          color: { value: new THREE.Color(0x99ccff) },
+          color: { value: new THREE.Color(0x99ccff) }, // Uniform color for all particles
+          pointTexture: {
+            value: new THREE.TextureLoader().load(
+              "/textures/transparent/circle_05.png"
+            ), // Circular texture
+          },
         },
         vertexShader: `
-          attribute float size;
-          varying float vOpacity;
-    
           void main() {
-            vOpacity = 1.0 - (abs(position.z) / 100.0); // Fade opacity with distance
-
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); 
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_PointSize = 4.0 * (300.0 / -mvPosition.z); // Adjust size based on depth
             gl_Position = projectionMatrix * mvPosition;
-            gl_PointSize = 4.0 * (300.0 / max(-mvPosition.z, 0.1)); // Scale particles based on depth
-}
+          }
         `,
         fragmentShader: `
-        uniform vec3 color;
-        varying float vOpacity;
-
-        void main() {
-          float alpha = max(vOpacity, 0.0); // Ensure vOpacity is clamped to a valid range
-          gl_FragColor = vec4(color, alpha); // Use calculated alpha for opacity
-        }
+          uniform vec3 color;
+          uniform sampler2D pointTexture;
+      
+          void main() {
+            vec4 textureColor = texture2D(pointTexture, gl_PointCoord);
+            if (textureColor.a < 0.1) discard; // Discard fragments outside circular region
+            gl_FragColor = vec4(color * textureColor.rgb, textureColor.a); // Combine texture and uniform color
+          }
         `,
-        transparent: true,
-        depthWrite: false,
         blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
       });
 
       const jets = new THREE.Points(jetGeometry, jetMaterial);
@@ -471,11 +401,11 @@ function QuasarSimulation() {
 
     const createAbsorbingPlanet = () => {
       const planetParams = {
-        radius: 3, // Size of the planet
-        orbitRadius: 40, // Starting distance from the core
-        angularSpeed: 0.05, // Angular velocity (for spiral motion)
-        radialSpeed: 0.3, // Speed at which it moves toward the core
-        tailSegments: 50, // Number of segments in the tail
+        radius: 10, // Size of the planet
+        orbitRadius: 70, // Starting distance from the core
+        angularSpeed: 0.07, // Angular velocity (for spiral motion)
+        radialSpeed: 0.1, // Speed at which it moves toward the core
+        tailSegments: 100, // Number of segments in the tail
         tailSize: 10, // Base size of tail particles
       };
 
@@ -485,7 +415,13 @@ function QuasarSimulation() {
         32,
         32
       );
-      const planetMaterial = new THREE.MeshBasicMaterial({ color: 0x4682b4 }); // Cold blue
+      const planetTexture = new THREE.TextureLoader().load(
+        "/textures/transparent/planet_01.png"
+      );
+      planetTexture.repeat.set(2, 2); // Repeat the texture
+      const planetMaterial = new THREE.MeshBasicMaterial({
+        map: planetTexture,
+      }); // Cold blue
       const planet = new THREE.Mesh(planetGeometry, planetMaterial);
       scene.add(planet);
 
@@ -521,9 +457,11 @@ function QuasarSimulation() {
       const tailMaterial = new THREE.ShaderMaterial({
         uniforms: {
           pointTexture: {
-            value: new THREE.TextureLoader().load("/textures/flare.jpg"),
+            value: new THREE.TextureLoader().load(
+              "/textures/transparent/smoke_05.png"
+            ),
           },
-          opacity: { value: 0.5 }, // Adjust opacity
+          opacity: { value: 1 }, // Adjust opacity
         },
         vertexShader: `
           attribute float size;
@@ -533,7 +471,7 @@ function QuasarSimulation() {
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             vSize = size;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            gl_PointSize = size * (300.0 / max(-mvPosition.z, 0.001));
+            gl_PointSize = size * (500.0 / max(-mvPosition.z, 0.001));
           }
         `,
         fragmentShader: `
@@ -758,7 +696,7 @@ function QuasarSimulation() {
     const createCoreEjectionFlare = () => {
       const flareParameters = {
         count: 10000, // Number of particles per ejection
-        size: 0.3, // Initial size of particles
+        size: 3, // Initial size of particles
         speed: 1, // Initial speed of particles
         acceleration: 0.001, // Acceleration per frame
         maxLifetime: 10, // Lifetime in seconds
@@ -800,6 +738,9 @@ function QuasarSimulation() {
         size: flareParameters.size,
         // the color of the random planets that teared off from the quasar, something other than orange, similar with the cold ice color
         color: 0x4682b4,
+        map: new THREE.TextureLoader().load(
+          "/textures/transparent/star_05.png"
+        ),
         blending: THREE.AdditiveBlending,
         transparent: true,
         depthWrite: false,
@@ -944,11 +885,14 @@ function QuasarSimulation() {
     const tick = () => {
       const elapsedTime = clock.getElapsedTime();
 
-      // Animate core and glow
-      core.rotation.y = elapsedTime * 0.5;
-
       // Animate galaxy disk
       animateDisk();
+
+      // Rotate the new core model
+      const newCoreModel = scene.getObjectByName("coreModel");
+      if (newCoreModel) {
+        newCoreModel.rotation.y = elapsedTime * 2;
+      }
 
       // Animate jets
       // Update animations
@@ -959,7 +903,6 @@ function QuasarSimulation() {
       animateDiskParticles();
 
       animateAccretionDisk();
-      animateGlow(elapsedTime);
       // Render scene
       controls.update();
       composer.render();
