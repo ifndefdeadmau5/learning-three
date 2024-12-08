@@ -60,9 +60,9 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.3, // Lowered strength (was 0.8)
+      0.2, // Lowered strength (was 0.8)
       0.01, // Slight radius for subtle effect
-      0.25 // Higher threshold to exclude dimmer objects
+      0.75 // Higher threshold to exclude dimmer objects
     );
     composer.addPass(bloomPass);
 
@@ -263,7 +263,7 @@ function QuasarSimulation() {
 
     // Jets
     const jetParameters = {
-      count: 10000, // Increase the number of particles
+      count: 5000, // Increase the number of particles
       radius: 0.001, // Increase starting radius for a denser emission
       height: 1000,
       spread: 0.04,
@@ -399,15 +399,15 @@ function QuasarSimulation() {
 
     // Disk Parameters
     const diskParams = {
-      numRings: 10, // Number of rings
+      numRings: 15, // Number of rings
       innerRadius: 20, // Inner radius of the innermost ring
-      outerRadius: 150, // Outer radius of the outermost ring
-      heightVariation: 0.2, // Vertical turbulence
+      outerRadius: 30, // Outer radius of the outermost ring
+      heightVariation: 0.1, // Vertical turbulence
       baseColor: "#FBA209", // Base color for gas (orange)
-      tiltRange: Math.PI / 6, // Maximum tilt angle (~45 degrees)
-      colorVariation: 0.1, // Degree of randomization (0 = no variation, 1 = full random)
-      verticalGradient: 5.0, // Degree of height gradient (thickness of the disk)
-      curveAmount: 4, // Amount of curvature applied to the rings
+      tiltRange: Math.PI / 7, // Maximum tilt angle (~45 degrees)
+      colorVariation: 0.5, // Degree of randomization (0 = no variation, 1 = full random)
+      verticalGradient: 0.01, // Degree of height gradient (thickness of the disk)
+      curveAmount: 0.03, // Amount of curvature applied to the rings
     };
 
     // Array to store rings for later updates
@@ -439,8 +439,10 @@ function QuasarSimulation() {
     ) => {
       const ringGeometry = new THREE.RingGeometry(
         innerRadius,
-        outerRadius,
-        1000
+        innerRadius,
+        // outerRadius,
+        32,
+        15
       );
       const positions = ringGeometry.attributes.position.array;
 
@@ -472,11 +474,11 @@ function QuasarSimulation() {
 
       // Load texture for the rings
       const diskTexture = new THREE.TextureLoader().load(
-        "/textures/transparent/smoke_02.png"
+        "/textures/transparent/fire_01.png"
       );
       diskTexture.wrapS = THREE.RepeatWrapping;
       diskTexture.wrapT = THREE.RepeatWrapping;
-      diskTexture.repeat.set(1000, 100); // Adjust texture tiling
+      diskTexture.repeat.set(1000, 1000); // Adjust texture tiling
 
       // Generate a slightly randomized color based on the base color
       const color = randomizeColor(baseColor, diskParams.colorVariation);
@@ -485,7 +487,7 @@ function QuasarSimulation() {
         map: diskTexture,
         color: color,
         transparent: true,
-        opacity: 0.8,
+        opacity: 1,
         emissive: color, // Glow
         emissiveIntensity: 1.0,
         side: THREE.DoubleSide,
@@ -505,8 +507,8 @@ function QuasarSimulation() {
     // Create multiple rings with slight color variations
     const baseColor = new THREE.Color(diskParams.baseColor);
     for (let i = 0; i < diskParams.numRings; i++) {
-      const innerRadius = diskParams.innerRadius + i * 3; // Increment inner radius for each ring
-      const outerRadius = innerRadius + 2; // Outer radius slightly larger
+      const innerRadius = diskParams.innerRadius + Math.random() * 50; // Increment inner radius for each ring
+      const outerRadius = innerRadius + 0.01; // Outer radius slightly larger
       const ring = createRing(innerRadius, outerRadius, baseColor);
 
       scene.add(ring);
@@ -514,7 +516,8 @@ function QuasarSimulation() {
     }
 
     // Animation: Rotate all rings slowly with wobble
-    const animateDiskRings = () => {
+
+    const animateDiskRings = (delta: number) => {
       scene.traverse((child) => {
         if (
           (child as THREE.Mesh).geometry &&
@@ -522,8 +525,8 @@ function QuasarSimulation() {
         ) {
           const mesh = child as THREE.Mesh;
           mesh.rotation.z += 0.05; // Rotate each ring slightly
-          // mesh.rotation.x += Math.sin(Date.now() * 0.0001) * 0.0005; // Add subtle wobble
-          mesh.rotation.y += Math.cos(Date.now() * 0.0001) * 0.0005;
+          mesh.rotation.x += Math.sin(delta * 0.0001) * 0.0005; // Add subtle wobble
+          // mesh.rotation.y += Math.cos(delta * 0.0001) * 0.0005;
         }
       });
     };
@@ -1009,7 +1012,7 @@ function QuasarSimulation() {
       // Rotate the new core model
       const newCoreModel = scene.getObjectByName("coreModel");
       if (newCoreModel) {
-        newCoreModel.rotation.y = elapsedTime * 4;
+        newCoreModel.rotation.y = elapsedTime * 0.4;
       }
 
       // Animate jets
@@ -1021,7 +1024,7 @@ function QuasarSimulation() {
       animateDiskParticles();
 
       // animateAccretionDisk();
-      animateDiskRings();
+      animateDiskRings(elapsedTime);
       // Render scene
       controls.update();
       composer.render();
