@@ -53,17 +53,46 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.4, // Lowered strength (was 0.8)
-      0.01, // Slight radius for subtle effect
+      0.01, // Lowered strength (was 0.8)
+      0.001, // Slight radius for subtle effect
       0.25 // Higher threshold to exclude dimmer objects
     );
-    // composer.addPass(bloomPass);
+    composer.addPass(bloomPass);
+
+    const disposeScene = () => {
+      // Traverse and dispose all scene children
+      scene.traverse((object) => {
+        if (object instanceof THREE.Mesh && object.geometry)
+          object.geometry.dispose();
+        const mesh = object as THREE.Mesh;
+        if (mesh.material) {
+          if (Array.isArray(mesh.material)) {
+            mesh.material.forEach((mat: THREE.Material) => mat.dispose());
+          } else {
+            mesh.material.dispose();
+          }
+        }
+        if ((mesh as any).texture) (mesh as any).texture.dispose();
+      });
+    };
+
+    const disposeRenderer = () => {
+      renderer.dispose();
+    };
+
+    const disposeGUI = () => {
+      gui.destroy();
+    };
+
+    const disposeControls = () => {
+      controls.dispose();
+    };
 
     // GUI for bloom adjustments
     const gui = new GUI();
     const bloomParams = { strength: 1.0, radius: 0.01, threshold: 0.25 };
     gui
-      .add(bloomParams, "strength", 0, 3)
+      .add(bloomParams, "strength", 0, 0.09)
       .onChange((v: number) => (bloomPass.strength = v));
     gui
       .add(bloomParams, "radius", 0, 1)
@@ -117,16 +146,37 @@ function QuasarSimulation() {
     scene.add(glow);
 
     // Jets
+    const jetParameters = {
+      count: 10000, // Increase the number of particles
+      radius: 0.5, // Increase starting radius for a denser emission
+      height: 1000,
+      spread: 0.05,
+      acceleration: 0.01,
+      speed: 1.5, // Slightly faster initial speed
+      turbulence: 0.0054,
+    };
+
+    const jetParams = { speed: 1.5, turbulence: 0.02, spread: 0.2 };
+    // gui
+    //   .add(jetParams, "speed", 0.1, 5)
+    //   .onChange((v: number) => (jetParameters.speed = v));
+    // gui
+    //   .add(jetParams, "turbulence", 0.0, 0.1)
+    //   .onChange((v: number) => (jetParameters.turbulence = v));
+    // gui
+    //   .add(jetParams, "spread", 0.0, 0.5)
+    //   .onChange((v: number) => (jetParameters.spread = v));
+
     const createJetStreams = () => {
-      const jetParameters = {
-        count: 30000, // Increase the number of particles
-        radius: 0.5, // Increase starting radius for a denser emission
-        height: 1000,
-        spread: 0.2,
-        acceleration: 0.01,
-        speed: 2.0, // Slightly faster initial speed
-        turbulence: 0.03,
-      };
+      // const jetParameters = {
+      //   count: 50000, // Higher particle count for denser streams
+      //   radius: 1.5, // Wider initial spread
+      //   height: 1200, // Increased jet height
+      //   spread: 0.03, // Larger spread for a gas-like effect
+      //   acceleration: 0.005, // Reduce acceleration for smoother motion
+      //   speed: 1.5, // Adjust initial speed
+      //   turbulence: 0.02, // Subtle randomness
+      // };
 
       const jetGeometry = new THREE.BufferGeometry();
       const positions = new Float32Array(jetParameters.count * 3);
@@ -141,13 +191,13 @@ function QuasarSimulation() {
 
         positions[i * 3] = Math.cos(angle) * radius; // X
         positions[i * 3 + 1] = Math.sin(angle) * radius; // Y
-        positions[i * 3 + 2] = progress * (Math.random() < 0.5 ? 1 : -1); // Z (up/down direction)
+        positions[i * 3 + 2] =
+          Math.random() * jetParameters.height * (Math.random() < 0.5 ? 1 : -1); // Spread particles along height
 
-        velocities[i * 3] = (Math.random() - 0.5) * jetParameters.turbulence; // X velocity
-        velocities[i * 3 + 1] =
-          (Math.random() - 0.5) * jetParameters.turbulence; // Y velocity
-        velocities[i * 3 + 2] =
-          jetParameters.speed * (Math.random() < 0.5 ? 1 : -1); // Z velocity
+        velocities[i] = (Math.random() - 0.5) * jetParameters.turbulence;
+        velocities[i + 1] = (Math.random() - 0.5) * jetParameters.turbulence;
+        velocities[i + 2] =
+          jetParameters.speed * (Math.random() < 0.5 ? 1 : -1); // Match up/down direction
       }
 
       jetGeometry.setAttribute(
@@ -183,13 +233,13 @@ function QuasarSimulation() {
 }
         `,
         fragmentShader: `
-          uniform vec3 color;
-          varying float vOpacity;
-    
-          void main() {
-            gl_FragColor = vec4(color, vOpacity); // Color with variable opacity
-            
-          }
+        uniform vec3 color;
+        varying float vOpacity;
+
+        void main() {
+          float alpha = max(vOpacity, 0.0); // Ensure vOpacity is clamped to a valid range
+          gl_FragColor = vec4(color, alpha); // Use calculated alpha for opacity
+        }
         `,
         transparent: true,
         depthWrite: false,
@@ -203,24 +253,6 @@ function QuasarSimulation() {
           .array as Float32Array;
         const velocities = jets.geometry.attributes.velocity
           .array as Float32Array;
-
-        // const lifetimes = jets.geometry.attributes.lifetime
-        //   .array as Float32Array;
-
-        // for (let i = 0; i < positions.length / 3; i++) {
-        //   lifetimes[i] -= 0.05; // Gradually decrease lifetime
-        //   if (lifetimes[i] <= 0) {
-        //     // Reset position and lifetime
-        //     positions[i * 3] =
-        //       Math.cos(Math.random() * Math.PI * 2) * jetParameters.radius;
-        //     positions[i * 3 + 1] =
-        //       Math.sin(Math.random() * Math.PI * 2) * jetParameters.radius;
-        //     positions[i * 3 + 2] = 0; // Reset to core
-        //     lifetimes[i] = 1.0; // Reset lifetime
-        //   }
-        // }
-
-        jets.geometry.attributes.lifetime.needsUpdate = true;
 
         for (let i = 0; i < positions.length; i += 3) {
           // Apply velocity to positions
@@ -279,10 +311,10 @@ function QuasarSimulation() {
 
     const createAbsorbingPlanet = () => {
       const planetParams = {
-        radius: 0.6, // Size of the planet
-        orbitRadius: 30, // Starting distance from the core
-        angularSpeed: 0.01, // Angular velocity (for spiral motion)
-        radialSpeed: 0.05, // Speed at which it moves toward the core
+        radius: 6, // Size of the planet
+        orbitRadius: 60, // Starting distance from the core
+        angularSpeed: 0.05, // Angular velocity (for spiral motion)
+        radialSpeed: 0.1, // Speed at which it moves toward the core
         tailSegments: 50, // Number of segments in the tail
         tailSize: 10, // Base size of tail particles
       };
@@ -469,10 +501,10 @@ function QuasarSimulation() {
     const diskParameters = {
       count: 2000, // Number of particles
       radius: 60, // Maximum radius of the disk
-      branches: 2, // Number of spiral arms
+      branches: 3, // Number of spiral arms
       randomness: 0.3, // Randomness factor for particle positioning
-      heightVariation: 0.1, // Vertical randomness
-      spin: 0.001, // Spin factor for the spiral arms
+      heightVariation: 0.3, // Vertical randomness
+      spin: 0.1, // Spin factor for the spiral arms
     };
 
     const createGalaxyDisk = () => {
@@ -531,7 +563,7 @@ function QuasarSimulation() {
 
       // Animate the disk rotation in the animation loop
       const animateDisk = () => {
-        galaxyDisk.rotation.y += 0.002; // Smooth rotation around the z-axis
+        galaxyDisk.rotation.y += 0.02; // Smooth rotation around the z-axis
       };
 
       return { galaxyDisk, animateDisk };
@@ -725,7 +757,7 @@ function QuasarSimulation() {
     const triggerAbsorbingPlanets = () => {
       createAbsorbingPlanet(); // Create a new absorbing planet
     };
-    // triggerAbsorbingPlanets();
+    triggerAbsorbingPlanets();
 
     const updateGlowEffect = (elapsedTime: number) => {
       glowMaterial.uniforms.coefficient.value +=
@@ -781,6 +813,10 @@ function QuasarSimulation() {
 
     return () => {
       gui.destroy();
+      disposeScene();
+      disposeRenderer();
+      disposeGUI();
+      disposeControls();
     };
   }, []);
 
