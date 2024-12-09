@@ -677,7 +677,6 @@ function QuasarSimulation() {
           createCoreEjectionFlare();
         }
       };
-
       // Animate the planet and tail
       const animationInterval = setInterval(animatePlanet, 50); // Update every 50ms
 
