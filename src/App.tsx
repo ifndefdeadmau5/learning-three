@@ -60,10 +60,23 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.2, // Lowered strength (was 0.8)
-      0.01, // Slight radius for subtle effect
-      0.75 // Higher threshold to exclude dimmer objects
+      0.4, // Lowered strength (was 0.8)
+      0.5, // Slight radius for subtle effect
+      0.3 // Higher threshold to exclude dimmer objects
     );
+
+    // GUI for bloom adjustments
+    const bloomParams = { strength: 1.0, radius: 0.01, threshold: 0.25 };
+    gui
+      .add(bloomParams, "strength", 0, 0.6)
+      .onChange((v: number) => (bloomPass.strength = v));
+    gui
+      .add(bloomParams, "radius", 0, 1)
+      .onChange((v: number) => (bloomPass.radius = v));
+    gui
+      .add(bloomParams, "threshold", 0, 1)
+      .onChange((v: number) => (bloomPass.threshold = v));
+
     composer.addPass(bloomPass);
 
     const disposeScene = () => {
@@ -94,18 +107,6 @@ function QuasarSimulation() {
     const disposeControls = () => {
       controls.dispose();
     };
-
-    // GUI for bloom adjustments
-    const bloomParams = { strength: 1.0, radius: 0.01, threshold: 0.25 };
-    gui
-      .add(bloomParams, "strength", 0, 0.09)
-      .onChange((v: number) => (bloomPass.strength = v));
-    gui
-      .add(bloomParams, "radius", 0, 1)
-      .onChange((v: number) => (bloomPass.radius = v));
-    gui
-      .add(bloomParams, "threshold", 0, 1)
-      .onChange((v: number) => (bloomPass.threshold = v));
 
     // GLTF Loader
     const loader = new GLTFLoader();
@@ -536,7 +537,7 @@ function QuasarSimulation() {
     // Modified createAbsorbingPlanet function
     const createAbsorbingPlanet = () => {
       const planetParams = {
-        radius: 10, // Size of the planet
+        radius: 5, // Size of the planet
         orbitRadius: 50 + planetCount * 20, // Vary the starting distance based on the number of planets
         angularSpeed: 0.07, // Angular velocity (for spiral motion)
         radialSpeed: 0.5, // Speed at which it moves toward the core
@@ -625,7 +626,7 @@ function QuasarSimulation() {
       });
 
       const tail = new THREE.Points(tailGeometry, tailMaterial);
-      // scene.add(tail);
+      scene.add(tail);
 
       // Spiral motion logic
       let angle = 0; // Current angle
