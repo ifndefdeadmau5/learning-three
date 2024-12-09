@@ -52,6 +52,10 @@ function Page() {
     /**
      * Camera
      */
+
+    const cameraGroup = new THREE.Group();
+    scene.add(cameraGroup);
+
     // Base camera
     const camera = new THREE.PerspectiveCamera(
       35,
@@ -60,7 +64,7 @@ function Page() {
       100
     );
     camera.position.z = 6;
-    scene.add(camera);
+    cameraGroup.add(camera);
 
     /**
      * Renderer
@@ -110,6 +114,40 @@ function Page() {
     mesh3.position.y = -objectsDistance * 2;
 
     /**
+     * Particles
+     */
+
+    const sectionMeshes = [mesh1, mesh2, mesh3];
+    // Geometry
+    const particlesCount = 1000;
+    const positions = new Float32Array(particlesCount * 3);
+
+    for (let i = 0; i < particlesCount; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * 6;
+      positions[i * 3 + 1] =
+        objectsDistance * 0.5 -
+        Math.random() * (objectsDistance * sectionMeshes.length);
+      positions[i * 3 + 2] = Math.random() - 0.5;
+    }
+
+    const particlesGeometry = new THREE.BufferGeometry();
+    particlesGeometry.setAttribute(
+      "position",
+      new THREE.BufferAttribute(positions, 3)
+    );
+
+    // Material
+    const particlesMaterial = new THREE.PointsMaterial({
+      color: parameters.materialColor,
+      sizeAttenuation: true,
+      size: 0.03,
+    });
+
+    // Points
+    const particles = new THREE.Points(particlesGeometry, particlesMaterial);
+    scene.add(particles);
+
+    /**
      * Lights
      */
     const directionalLight = new THREE.DirectionalLight("#ffffff", 3);
@@ -128,13 +166,16 @@ function Page() {
     const cursor = { x: 0, y: 0 };
 
     const onMouseMove = (event: any) => {
-      // Normalize cursor position to range [-1, 1]
-      cursor.x = (event.clientX / window.innerWidth) * 2 - 1;
-      cursor.y = -(event.clientY / window.innerHeight) * 2 + 1;
+      cursor.x = event.clientX / sizes.width - 0.5;
+      cursor.y = event.clientY / sizes.height - 0.5;
 
+      // Normalize cursor position to range [-1, 1]
+      // cursor.x = (event.clientX / window.innerWidth) * 2 - 1;
+      // cursor.y = -(event.clientY / window.innerHeight) * 2 + 1;
       // Update light position
-      directionalLight.position.x = cursor.x * 2; // Adjust multiplier as needed
-      directionalLight.position.y = cursor.y * 2; // Adjust multiplier as needed
+      // directionalLight.position.x = cursor.x * 2; // Adjust multiplier as needed
+
+      // directionalLight.position.y = cursor.y * 2; // Adjust multiplier as needed
     };
 
     window.addEventListener("mousemove", onMouseMove);
@@ -147,18 +188,30 @@ function Page() {
      * Animate
      */
     const clock = new THREE.Clock();
+    let previousTime = 0;
     let requestId = 0;
-    const sectionMeshes = [mesh1, mesh2, mesh3];
+
     const tick = () => {
       const elapsedTime = clock.getElapsedTime();
+      const deltaTime = elapsedTime - previousTime;
+      previousTime = elapsedTime;
+
+      // Animate camera
+      camera.position.y = (-scrollY / sizes.height) * objectsDistance;
+
+      const parallaxX = cursor.x * 0.5;
+      const parallaxY = -cursor.y * 0.5;
+
+      cameraGroup.position.x +=
+        (parallaxX - cameraGroup.position.x) * 5 * deltaTime;
+      cameraGroup.position.y +=
+        (parallaxY - cameraGroup.position.y) * 5 * deltaTime;
 
       // Animate meshes
       for (const mesh of sectionMeshes) {
-        mesh.rotation.x = elapsedTime * 0.1;
-        mesh.rotation.y = elapsedTime * 0.12;
+        mesh.rotation.x = deltaTime * 0.1;
+        mesh.rotation.y = deltaTime * 0.12;
       }
-
-      camera.position.y = (-scrollY / sizes.height) * objectsDistance;
 
       // Render
       renderer.render(scene, camera);
