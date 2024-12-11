@@ -5,6 +5,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import GUI from "lil-gui";
+import gsap from "gsap";
 import "./style.css";
 
 function Page() {
@@ -168,21 +169,30 @@ function Page() {
     const onMouseMove = (event: any) => {
       cursor.x = event.clientX / sizes.width - 0.5;
       cursor.y = event.clientY / sizes.height - 0.5;
-
-      // Normalize cursor position to range [-1, 1]
-      // cursor.x = (event.clientX / window.innerWidth) * 2 - 1;
-      // cursor.y = -(event.clientY / window.innerHeight) * 2 + 1;
-      // Update light position
-      // directionalLight.position.x = cursor.x * 2; // Adjust multiplier as needed
-
-      // directionalLight.position.y = cursor.y * 2; // Adjust multiplier as needed
     };
 
     window.addEventListener("mousemove", onMouseMove);
 
     let scrollY = window.scrollY;
+    let currentSection = 0;
+
     window.addEventListener("scroll", () => {
       scrollY = window.scrollY;
+      const newSection = Math.round(scrollY / sizes.height);
+
+      if (newSection !== currentSection) {
+        currentSection = newSection;
+
+        console.log("changed", currentSection);
+
+        gsap.to(sectionMeshes[currentSection].rotation, {
+          duration: 1.5,
+          ease: "power2.inOut",
+          x: "+=6",
+          y: "+=3",
+          z: "+=1.5",
+        });
+      }
     });
     /**
      * Animate
@@ -207,18 +217,19 @@ function Page() {
       cameraGroup.position.y +=
         (parallaxY - cameraGroup.position.y) * 5 * deltaTime;
 
-      // Animate meshes
+      // // Animate meshes
+
       for (const mesh of sectionMeshes) {
-        mesh.rotation.x = deltaTime * 0.1;
-        mesh.rotation.y = deltaTime * 0.12;
+        mesh.rotation.x += deltaTime * 0.1;
+        mesh.rotation.y += deltaTime * 0.12;
       }
 
       // Render
       renderer.render(scene, camera);
 
       // constantly change the position of the light to make it seem like the object is glowing
-      // directionalLight.position.x = Math.sin(elapsedTime);
-      // directionalLight.position.y = Math.cos(elapsedTime);
+      directionalLight.position.x = Math.sin(elapsedTime);
+      directionalLight.position.y = Math.cos(elapsedTime);
 
       // Call tick again on the next frame
       requestId = window.requestAnimationFrame(tick);
