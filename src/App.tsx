@@ -401,15 +401,19 @@ function QuasarSimulation() {
       outerRadius: number,
       baseColor: THREE.Color
     ) => {
+      // Randomize thetaLength (length of the ring arc)
+      const randomThetaLength = Math.random() * Math.PI * 2; // Random value between 0 and full circle (0 to 2π)
+
+      // Create the ring geometry with random thetaLength
       const ringGeometry = new THREE.RingGeometry(
         innerRadius,
-        innerRadius,
-        // outerRadius,
-        40,
-        30,
-        0,
-        Math.PI * 1.5
+        outerRadius,
+        40, // Radial segments
+        30, // Tubular segments
+        0, // Start angle
+        randomThetaLength // Randomized theta length
       );
+
       const positions = ringGeometry.attributes.position.array;
 
       // Add vertical gradient and curvature to the vertices
