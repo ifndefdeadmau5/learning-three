@@ -707,6 +707,7 @@ function QuasarSimulation() {
       randomness: 0.05, // Randomness factor for particle positioning
       heightVariation: 0.01, // Vertical randomness
       spin: 0.1, // Spin factor for the spiral arms
+      speed: 0.01, // Rotation speed
     };
 
     const createGalaxyDisk = () => {
@@ -765,11 +766,17 @@ function QuasarSimulation() {
 
       // Animate the disk rotation in the animation loop
       const animateDisk = () => {
-        galaxyDisk.rotation.y += 0.05; // Smooth rotation around the z-axis
+        galaxyDisk.rotation.y += diskParameters.speed; // Smooth rotation around the z-axis
       };
 
       return { galaxyDisk, animateDisk };
     };
+
+    // add gui for the disk rotation
+    gui
+      .add(diskParameters, "speed", 0.01, 0.1)
+      .name("Disk Rotation Speed")
+      .onChange((v: number) => (diskParameters.speed = v));
 
     const createCoreEjectionFlare = () => {
       const flareParameters = {
@@ -872,21 +879,6 @@ function QuasarSimulation() {
     // Call this function to create the galaxy disk
     const { galaxyDisk, animateDisk } = createGalaxyDisk();
 
-    const animateDiskParticles = () => {
-      const positions = galaxyDisk.geometry.attributes.position
-        .array as Float32Array;
-      for (let i = 0; i < positions.length; i += 3) {
-        const distance = Math.sqrt(positions[i] ** 2 + positions[i + 2] ** 2);
-        const drift = 0.001 * Math.sign(distance); // Small outward drift
-
-        if (distance < diskParameters.radius) {
-          // positions[i] += positions[i] * drift;
-          // positions[i + 2] += positions[i + 2] * drift;
-        }
-      }
-      galaxyDisk.geometry.attributes.position.needsUpdate = true;
-    };
-
     const lensDistortionShader = {
       uniforms: {
         tDiffuse: { value: null },
@@ -959,7 +951,6 @@ function QuasarSimulation() {
       animateJets();
 
       // Animate disk particles
-      animateDiskParticles();
 
       // animateAccretionDisk();
       animateDiskRings(elapsedTime);
