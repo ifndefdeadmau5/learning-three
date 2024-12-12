@@ -60,7 +60,7 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.4, // Lowered strength (was 0.8)
+      0.35, // strength
       0.5, // Slight radius for subtle effect
       0.3 // Higher threshold to exclude dimmer objects
     );
@@ -164,18 +164,19 @@ function QuasarSimulation() {
         }
       `,
       transparent: true,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
     });
     const eventHorizon = new THREE.Mesh(
       new THREE.SphereGeometry(5, 64, 64),
       blackHoleMaterial
     );
+    eventHorizon.scale.set(3.12, 3.12, 3.12);
     scene.add(eventHorizon);
 
     const lensingShader = {
       uniforms: {
         tDiffuse: { value: null },
-        distortionStrength: { value: 0.05 },
+        distortionStrength: { value: 0.03 },
       },
       vertexShader: `
         varying vec2 vUv;
@@ -188,13 +189,13 @@ function QuasarSimulation() {
         uniform sampler2D tDiffuse;
         uniform float distortionStrength;
         varying vec2 vUv;
-    
+
         void main() {
           vec2 distortedUv = vUv - 0.5;
           float radius = length(distortedUv);
           distortedUv *= 1.0 + distortionStrength / (radius); // Lens effect
           distortedUv += 0.5;
-    
+
           vec4 color = texture2D(tDiffuse, distortedUv);
           gl_FragColor = vec4(color.rgb, 1.0);
         }
@@ -204,68 +205,10 @@ function QuasarSimulation() {
 
     composer.addPass(lensingPass);
 
-    // Accretion Disk Parameters(Commented because of the matter of preference)
-    // const accretionDiskParams = {
-    //   innerRadius: 6, // Inner radius of the disk
-    //   outerRadius: 50, // Outer radius of the disk
-    //   segments: 500, // Number of radial segments
-    //   heightVariation: 0.2, // Vertical variation for "turbulence"
-    //   color: 0xff4500, // Base color for the gas (reddish-orange)
-    // };
-
-    // // Create a disk geometry
-    // const accretionDiskGeometry = new THREE.RingGeometry(
-    //   accretionDiskParams.innerRadius,
-    //   accretionDiskParams.outerRadius,
-    //   accretionDiskParams.segments
-    // );
-
-    // // Add turbulence to the vertices (simulate gas movement)
-    // const positions = accretionDiskGeometry.attributes.position.array;
-    // for (let i = 0; i < positions.length; i += 3) {
-    //   // Add random height variation (turbulence)
-    //   positions[i + 2] +=
-    //     (Math.random() - 0.5) * accretionDiskParams.heightVariation;
-    // }
-    // accretionDiskGeometry.attributes.position.needsUpdate = true;
-
-    // // Apply a noise-based texture for a gas-like effect
-    // const diskTexture = new THREE.TextureLoader().load(
-    //   "/textures/transparent/smoke_01.png"
-    // );
-    // diskTexture.wrapS = THREE.RepeatWrapping;
-    // diskTexture.wrapT = THREE.RepeatWrapping;
-    // diskTexture.repeat.set(100, 10); // Adjust texture tiling
-
-    // // Create the material
-    // const accretionDiskMaterial = new THREE.MeshStandardMaterial({
-    //   map: diskTexture,
-    //   color: accretionDiskParams.color,
-    //   transparent: true,
-    //   opacity: 0.8,
-    //   emissive: new THREE.Color(0xff4500), // Glow color
-    //   emissiveIntensity: 1.5,
-    //   side: THREE.DoubleSide,
-    //   blending: THREE.AdditiveBlending,
-    // });
-
-    // // Create the accretion disk mesh
-    // const accretionDisk = new THREE.Mesh(
-    //   accretionDiskGeometry,
-    //   accretionDiskMaterial
-    // );
-
-    // scene.add(accretionDisk);
-
-    // Animation: Add a rotation to the disk
-    // const animateAccretionDisk = () => {
-    //   accretionDisk.rotation.z += 0.002; // Slow rotation
-    // };
-
     // Jets
     const jetParameters = {
       count: 5000, // Increase the number of particles
-      radius: 0.001, // Increase starting radius for a denser emission
+      radius: 0.1, // Increase starting radius for a denser emission
       height: 1000,
       spread: 0.04,
       acceleration: 0.08,
@@ -390,13 +333,11 @@ function QuasarSimulation() {
 
     // Call this function to create the jets
 
-    const { jets: jetUp, animateJets: animateJetUp } = createJetStreams();
-    const { jets: jetDown, animateJets: animateJetDown } = createJetStreams();
+    const { jets, animateJets } = createJetStreams();
 
-    jetDown.rotation.x = Math.PI; // Flip the second jet for downward emission
+    jets.rotation.x = Math.PI; // Flip the second jet for downward emission
 
-    scene.add(jetUp);
-    scene.add(jetDown);
+    scene.add(jets);
 
     // Disk Parameters
     const diskParams = {
@@ -408,7 +349,7 @@ function QuasarSimulation() {
       tiltRange: Math.PI / 7, // Maximum tilt angle (~45 degrees)
       colorVariation: 0.5, // Degree of randomization (0 = no variation, 1 = full random)
       verticalGradient: 0.01, // Degree of height gradient (thickness of the disk)
-      curveAmount: 0.03, // Amount of curvature applied to the rings
+      curveAmount: 0.1, // Amount of curvature applied to the rings
     };
 
     // Array to store rings for later updates
@@ -431,8 +372,6 @@ function QuasarSimulation() {
       return new THREE.Color(r, g, b);
     };
 
-    // Function to create a single ring
-    // Function to create a single ring
     const createRing = (
       innerRadius: number,
       outerRadius: number,
@@ -541,7 +480,7 @@ function QuasarSimulation() {
         orbitRadius: 50 + planetCount * 20, // Vary the starting distance based on the number of planets
         angularSpeed: 0.07, // Angular velocity (for spiral motion)
         radialSpeed: 0.5, // Speed at which it moves toward the core
-        tailSegments: 100, // Number of segments in the tail
+        tailSegments: 200, // Number of segments in the tail
         tailSize: 10, // Base size of tail particles
       };
 
@@ -565,8 +504,9 @@ function QuasarSimulation() {
       const tailGeometry = new THREE.BufferGeometry();
       const tailPositions = new Float32Array(planetParams.tailSegments * 3); // 3 values per segment (x, y, z)
       const tailSizes = new Float32Array(planetParams.tailSegments); // Size for each segment
+      const tailLifetimes = new Float32Array(planetParams.tailSegments); // Lifetime for each particle
 
-      // Initialize positions along the path from the core to the planet
+      // Initialize tail positions, sizes, and lifetimes
       for (let i = 0; i < planetParams.tailSegments; i++) {
         const t = i / (planetParams.tailSegments - 1); // Interpolation factor (0 to 1)
         const x = Math.cos(0) * planetParams.orbitRadius * (1 - t); // Linear interpolation to core
@@ -577,8 +517,8 @@ function QuasarSimulation() {
         tailPositions[i * 3 + 1] = y;
         tailPositions[i * 3 + 2] = z;
 
-        // Tail segment sizes shrink closer to the core
         tailSizes[i] = planetParams.tailSize * (1 - t); // Smaller closer to core
+        tailLifetimes[i] = 1.0 - t; // Particles fade as they approach the core
       }
 
       tailGeometry.setAttribute(
@@ -589,37 +529,49 @@ function QuasarSimulation() {
         "size",
         new THREE.BufferAttribute(tailSizes, 1)
       );
+      tailGeometry.setAttribute(
+        "lifetime",
+        new THREE.BufferAttribute(tailLifetimes, 1)
+      );
 
       const tailMaterial = new THREE.ShaderMaterial({
         uniforms: {
-          pointTexture: {
-            value: new THREE.TextureLoader().load(
-              "/textures/transparent/smoke_05.png"
-            ),
-          },
-          opacity: { value: 1 }, // Adjust opacity
+          color: { value: new THREE.Color(0xffe5c4) }, // Base color for the tail
+          opacity: { value: 1 }, // Adjust opacity dynamically
+          time: { value: 0 }, // Uniform to track time for motion
         },
         vertexShader: `
-      attribute float size;
-      varying float vSize;
-  
-      void main() {
-        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-        vSize = size;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * (500.0 / max(-mvPosition.z, 0.001));
-      }
-    `,
+          attribute float size;
+          attribute float lifetime;
+          varying float vOpacity;
+          varying float vLifetime;
+    
+          uniform float time;
+    
+          void main() {
+            vec3 flowPosition = position;
+            flowPosition.z -= time * 0.1; // Simulate flow motion
+            vLifetime = lifetime;
+    
+            vec4 mvPosition = modelViewMatrix * vec4(flowPosition, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            gl_PointSize = size * (500.0 / max(-mvPosition.z, 0.1));
+          }
+        `,
         fragmentShader: `
-      varying float vSize;
-      uniform sampler2D pointTexture;
-      uniform float opacity;
-  
-      void main() {
-        vec4 color = texture2D(pointTexture, gl_PointCoord);
-        gl_FragColor = vec4(color.rgb, color.a * opacity); // Use uniform opacity
-      }
-    `,
+          uniform vec3 color;
+          uniform float opacity;
+          varying float vOpacity;
+          varying float vLifetime;
+    
+          void main() {
+            vec2 coord = gl_PointCoord - vec2(0.5);
+            float dist = length(coord);
+            float alpha = 1.0 - smoothstep(0.4, 0.5, dist); // Circular fade
+            alpha *= vLifetime * opacity;
+            gl_FragColor = vec4(color, alpha);
+          }
+        `,
         transparent: true,
         depthWrite: false,
         blending: THREE.AdditiveBlending,
@@ -646,16 +598,16 @@ function QuasarSimulation() {
 
         planet.position.set(x, y, z);
 
-        // Update tail positions
+        // Update tail positions to follow the planet in a spiral motion
         const tailPositions = tail.geometry.attributes.position
           .array as Float32Array;
 
         for (let i = 0; i < planetParams.tailSegments; i++) {
           const t = i / (planetParams.tailSegments - 1); // Interpolation factor (0 to 1)
 
-          // Calculate spiral offset for each segment
-          const segmentAngle = angle - t * Math.PI * 2; // Spread the segments around the spiral
-          const segmentRadius = currentRadius * (1 - t); // Gradually reduce the radius
+          // Calculate interpolated radius and angle for the tail segment
+          const segmentRadius = currentRadius * (1 - t); // Gradually reduce the radius toward the core
+          const segmentAngle = angle - t * Math.PI * 2; // Spread the tail along the spiral
 
           const tx = Math.cos(segmentAngle) * segmentRadius; // Align with X-axis
           const ty = Math.sin(segmentAngle) * segmentRadius; // Align with Y-axis
@@ -677,11 +629,10 @@ function QuasarSimulation() {
           createCoreEjectionFlare();
         }
       };
-      // Animate the planet and tail
+
       const animationInterval = setInterval(animatePlanet, 50); // Update every 50ms
 
-      // Increment the planet count for orbit variation
-      planetCount++;
+      planetCount++; // Increment planet count for orbit variation
     };
 
     // Add an event listener for clicks to create absorbing planets
@@ -738,11 +689,11 @@ function QuasarSimulation() {
     };
     createStarfield();
     const diskParameters = {
-      count: 2000, // Number of particles
+      count: 4000, // Number of particles
       radius: 60, // Maximum radius of the disk
-      branches: 3, // Number of spiral arms
-      randomness: 0.3, // Randomness factor for particle positioning
-      heightVariation: 0.3, // Vertical randomness
+      branches: 5, // Number of spiral arms
+      randomness: 0.05, // Randomness factor for particle positioning
+      heightVariation: 0.01, // Vertical randomness
       spin: 0.1, // Spin factor for the spiral arms
     };
 
@@ -786,8 +737,8 @@ function QuasarSimulation() {
       );
 
       const diskMaterial = new THREE.PointsMaterial({
-        size: 0.5, // Particle size
-        color: 0xffcc00, // Yellowish glow
+        size: 0.33, // Particle size
+        color: 0xb0003c,
         blending: THREE.AdditiveBlending,
         transparent: true,
         depthWrite: false,
@@ -798,37 +749,14 @@ function QuasarSimulation() {
       // Rotate the disk to align it perpendicular to the jet streams
       galaxyDisk.rotation.x = Math.PI / 2;
 
-      // scene.add(galaxyDisk);
+      scene.add(galaxyDisk);
 
       // Animate the disk rotation in the animation loop
       const animateDisk = () => {
-        galaxyDisk.rotation.y += 0.02; // Smooth rotation around the z-axis
+        galaxyDisk.rotation.y += 0.05; // Smooth rotation around the z-axis
       };
 
       return { galaxyDisk, animateDisk };
-    };
-
-    const volumetricLightShader = {
-      uniforms: {
-        lightPosition: { value: new THREE.Vector3(0, 0, 0) },
-        tDiffuse: { value: null },
-      },
-      vertexShader: `
-        varying vec3 vPosition;
-        void main() {
-          vPosition = position;
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: `
-        uniform vec3 lightPosition;
-        varying vec3 vPosition;
-    
-        void main() {
-          float intensity = 0.01 / length(vPosition - lightPosition);
-          gl_FragColor = vec4(vec3(intensity), 1.0);
-        }
-      `,
     };
 
     const createCoreEjectionFlare = () => {
@@ -989,7 +917,6 @@ function QuasarSimulation() {
       `,
     };
 
-    // const distortionPass = new ShaderPass(lensDistortionShader);
     const distortionPass = new ShaderPass(lensDistortionShader);
     distortionPass.uniforms.center.value = new THREE.Vector2(0.5, 0.5); // Center on screen
     distortionPass.uniforms.radius.value = 1; // Base distortion radius
@@ -1017,14 +944,14 @@ function QuasarSimulation() {
 
       // Animate jets
       // Update animations
-      animateJetUp();
-      animateJetDown();
+      animateJets();
 
       // Animate disk particles
       animateDiskParticles();
 
       // animateAccretionDisk();
       animateDiskRings(elapsedTime);
+
       // Render scene
       controls.update();
       composer.render();
