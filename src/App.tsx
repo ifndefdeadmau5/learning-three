@@ -202,8 +202,20 @@ function QuasarSimulation() {
       `,
     };
     const lensingPass = new ShaderPass(lensingShader);
-
+    lensingPass.enabled = true; // Start enabled by default
     composer.addPass(lensingPass);
+
+    // Add GUI control for enabling/disabling the lensing pass
+    const guiParams = {
+      lensingEnabled: true, // Initial state
+    };
+
+    gui
+      .add(guiParams, "lensingEnabled")
+      .name("Enable Lensing")
+      .onChange((value: boolean) => {
+        lensingPass.enabled = value; // Enable or disable the lensing pass
+      });
 
     // Jets
     const jetParameters = {
