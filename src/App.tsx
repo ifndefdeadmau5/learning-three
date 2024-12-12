@@ -217,6 +217,18 @@ function QuasarSimulation() {
         lensingPass.enabled = value; // Enable or disable the lensing pass
       });
 
+    // add gui control for enabling/disabling the galaxy disk
+    const diskParams2 = {
+      diskEnabled: false, // Initial state
+    };
+
+    gui
+      .add(diskParams2, "diskEnabled")
+      .name("Enable Galaxy Disk")
+      .onChange((v: boolean) => {
+        galaxyDisk.visible = v;
+      });
+
     // Jets
     const jetParameters = {
       count: 5000, // Increase the number of particles
@@ -393,8 +405,10 @@ function QuasarSimulation() {
         innerRadius,
         innerRadius,
         // outerRadius,
-        32,
-        15
+        40,
+        30,
+        0,
+        Math.PI * 1.5
       );
       const positions = ringGeometry.attributes.position.array;
 
@@ -476,7 +490,7 @@ function QuasarSimulation() {
           (child as THREE.Mesh).geometry.type === "RingGeometry"
         ) {
           const mesh = child as THREE.Mesh;
-          mesh.rotation.z += 0.05; // Rotate each ring slightly
+          mesh.rotation.z += 0.01; // Rotate each ring slightly
           mesh.rotation.x += Math.sin(delta * 0.0001) * 0.0005; // Add subtle wobble
           // mesh.rotation.y += Math.cos(delta * 0.0001) * 0.0005;
         }
