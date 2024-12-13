@@ -503,16 +503,29 @@ function QuasarSimulation() {
     // Store the number of created planets for orbit variation
     let planetCount = 0;
 
-    // Modified createAbsorbingPlanet function
+    const planetParams = {
+      radius: 5, // Size of the planet
+      orbitRadius: 50 + planetCount * 20, // Vary the starting distance based on the number of planets
+      angularSpeed: 0.07, // Angular velocity (for spiral motion)
+      radialSpeed: 0.5, // Speed at which it moves toward the core
+      tailSegments: 200, // Number of segments in the tail
+      tailSize: 10, // Base size of tail particles
+    };
+
+    gui
+      .add(planetParams, "radius", 1, 30)
+      .name("Planet Size")
+      .onChange((v: number) => (planetParams.radius = v));
+    gui
+      .add(planetParams, "angularSpeed", 0.01, 0.2)
+      .name("Angular Speed")
+      .onChange((v: number) => (planetParams.angularSpeed = v));
+    gui
+      .add(planetParams, "radialSpeed", 0.1, 1)
+      .name("Radial Speed")
+      .onChange((v: number) => (planetParams.radialSpeed = v));
     const createAbsorbingPlanet = () => {
-      const planetParams = {
-        radius: 5, // Size of the planet
-        orbitRadius: 50 + planetCount * 20, // Vary the starting distance based on the number of planets
-        angularSpeed: 0.07, // Angular velocity (for spiral motion)
-        radialSpeed: 0.5, // Speed at which it moves toward the core
-        tailSegments: 200, // Number of segments in the tail
-        tailSize: 10, // Base size of tail particles
-      };
+      // gui for planet parameters
 
       // Create the planet
       const planetGeometry = new THREE.SphereGeometry(
@@ -523,10 +536,13 @@ function QuasarSimulation() {
       const planetTexture = new THREE.TextureLoader().load(
         "/textures/transparent/planet_01.png"
       );
-      planetTexture.repeat.set(2, 2); // Repeat the texture
+      // planetTexture.repeat.set(1, 1); // Repeat the texture
       const planetMaterial = new THREE.MeshBasicMaterial({
         map: planetTexture,
-      }); // Cold blue
+        // Cold blue
+        color: 0x00bfff,
+        side: THREE.DoubleSide,
+      });
       const planet = new THREE.Mesh(planetGeometry, planetMaterial);
       scene.add(planet);
 
@@ -608,7 +624,7 @@ function QuasarSimulation() {
       });
 
       const tail = new THREE.Points(tailGeometry, tailMaterial);
-      scene.add(tail);
+      // scene.add(tail);
 
       // Spiral motion logic
       let angle = 0; // Current angle
@@ -665,8 +681,35 @@ function QuasarSimulation() {
       planetCount++; // Increment planet count for orbit variation
     };
 
-    // Add an event listener for clicks to create absorbing planets
-    canvas.addEventListener("click", createAbsorbingPlanet);
+    let isDragging = false;
+    let mouseDownPosition = { x: 0, y: 0 };
+
+    // Add event listeners for detecting clicks vs dragging
+    const onMouseDown = (event: MouseEvent) => {
+      isDragging = false;
+      mouseDownPosition = { x: event.clientX, y: event.clientY };
+    };
+    const onMouseMove = (event: MouseEvent) => {
+      const dx = event.clientX - mouseDownPosition.x;
+      const dy = event.clientY - mouseDownPosition.y;
+
+      // Set a small threshold to distinguish between click and drag
+      if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+        isDragging = true;
+      }
+    };
+
+    const onMouseUp = (event: MouseEvent) => {
+      if (!isDragging) {
+        // If not dragging, treat as a click and create the planet
+        createAbsorbingPlanet();
+      }
+    };
+
+    // Attach event listeners
+    canvas.addEventListener("mousedown", onMouseDown);
+    canvas.addEventListener("mousemove", onMouseMove);
+    canvas.addEventListener("mouseup", onMouseUp);
 
     // Utility function to fade out and remove objects
     const fadeOutObject = (object: THREE.Object3D) => {
@@ -780,7 +823,7 @@ function QuasarSimulation() {
       // Rotate the disk to align it perpendicular to the jet streams
       galaxyDisk.rotation.x = Math.PI / 2;
 
-      scene.add(galaxyDisk);
+      // scene.add(galaxyDisk);
 
       // Animate the disk rotation in the animation loop
       const animateDisk = () => {
@@ -987,6 +1030,9 @@ function QuasarSimulation() {
       disposeRenderer();
       disposeGUI();
       disposeControls();
+      canvas.removeEventListener("mousedown", onMouseDown);
+      canvas.removeEventListener("mousemove", onMouseMove);
+      canvas.removeEventListener("mouseup", onMouseMove);
     };
   }, []);
 
