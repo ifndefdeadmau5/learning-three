@@ -60,15 +60,15 @@ function QuasarSimulation() {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(window.innerWidth, window.innerHeight),
-      0.35, // strength
-      0.5, // Slight radius for subtle effect
-      0.3 // Higher threshold to exclude dimmer objects
+      0.5, // strength
+      0.865, // Slight radius for subtle effect
+      0 // Higher threshold to exclude dimmer objects
     );
 
     // GUI for bloom adjustments
-    const bloomParams = { strength: 1.0, radius: 0.01, threshold: 0.25 };
+    const bloomParams = { strength: 0.6, radius: 0.865, threshold: 0 };
     gui
-      .add(bloomParams, "strength", 0, 0.6)
+      .add(bloomParams, "strength", 0.3, 0.9)
       .onChange((v: number) => (bloomPass.strength = v));
     gui
       .add(bloomParams, "radius", 0, 1)
@@ -202,7 +202,7 @@ function QuasarSimulation() {
       `,
     };
     const lensingPass = new ShaderPass(lensingShader);
-    lensingPass.enabled = true; // Start enabled by default
+    lensingPass.enabled = false; // Start enabled by default
     composer.addPass(lensingPass);
 
     // Add GUI control for enabling/disabling the lensing pass
