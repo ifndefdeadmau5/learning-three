@@ -4,10 +4,16 @@
 
 import { useEffect, useRef } from "react";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 import * as THREE from "three";
 import GUI from "lil-gui";
 import "./style.css";
+
+/**
+ * Loaders
+ */
+const gltfLoader = new GLTFLoader();
 
 function Page() {
   const el = useRef<HTMLCanvasElement>(null);
@@ -52,83 +58,24 @@ function Page() {
     const scene = new THREE.Scene();
 
     /**
-     * Textures
+     * Models
      */
-    const textureLoader = new THREE.TextureLoader();
-    const cubeTextureLoader = new THREE.CubeTextureLoader();
-
-    const environmentMapTexture = cubeTextureLoader.load([
-      "/textures/environmentMaps/0/px.png",
-      "/textures/environmentMaps/0/nx.png",
-      "/textures/environmentMaps/0/py.png",
-      "/textures/environmentMaps/0/ny.png",
-      "/textures/environmentMaps/0/pz.png",
-      "/textures/environmentMaps/0/nz.png",
-    ]);
+    gltfLoader.load("/models/FlightHelmet/glTF/FlightHelmet.gltf", (gltf) => {
+      console.log("success");
+      console.log(gltf);
+      /**
+       * Models
+       */
+      scene.add(gltf.scene);
+    });
 
     /**
      * Objects
      */
 
     /**
-     * 3 Test sphere pieces
-     */
-    const sphere = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 32, 32),
-      new THREE.MeshStandardMaterial({
-        metalness: 0.3,
-        roughness: 0.4,
-        envMap: environmentMapTexture,
-        envMapIntensity: 0.5,
-      })
-    );
-    sphere.castShadow = true;
-    sphere.position.y = 0.5;
-    sphere.position.x = 0.5;
-    scene.add(sphere);
-
-    const sphere2 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 32, 32),
-      new THREE.MeshStandardMaterial({
-        metalness: 0.3,
-        roughness: 0.4,
-        envMap: environmentMapTexture,
-        envMapIntensity: 0.5,
-      })
-    );
-
-    const sphere3 = new THREE.Mesh(
-      new THREE.SphereGeometry(0.5, 32, 32),
-      new THREE.MeshStandardMaterial({
-        metalness: 0.3,
-        roughness: 0.4,
-        envMap: environmentMapTexture,
-        envMapIntensity: 0.5,
-      })
-    );
-    sphere2.position.y = 1.5;
-    sphere2.position.x = 1.5;
-    scene.add(sphere2);
-    sphere3.position.y = 2.5;
-    sphere3.position.x = 2.5;
-    scene.add(sphere3);
-
-    /**
      * Floor
      */
-    const floor = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 10),
-      new THREE.MeshStandardMaterial({
-        color: "#777777",
-        metalness: 0.3,
-        roughness: 0.4,
-        envMap: environmentMapTexture,
-        envMapIntensity: 0.5,
-      })
-    );
-    floor.receiveShadow = true;
-    floor.rotation.x = -Math.PI * 0.5;
-    // scene.add(floor);
 
     /**
      * Lights
